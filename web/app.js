@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.5.0'; // Multi-proxy fallback + timeout + 520 error handling
+const APP_VERSION = '1.6.0'; // Network-first SW + auto-update on new version
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -255,7 +255,32 @@ const App = {
     }));
     document.getElementById('modal-backdrop').addEventListener('click', e => { if (e.target.id === 'modal-backdrop') this.closeModal(); });
     this.render();
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        // 주기적으로 업데이트 체크
+        setInterval(() => reg.update(), 60000);
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('[SW] New version available, reloading...');
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+              setTimeout(() => window.location.reload(), 500);
+            }
+          });
+        });
+        // 페이지 로드 시 즉시 업데이트 체크
+        reg.update();
+      }).catch(err => console.warn('[SW] Registration failed:', err));
+      // controller 변경 시 리로드 (새 SW 활성화)
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+    }
   },
   switchTab(tab) {
     this.currentTab = tab;

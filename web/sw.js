@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kream-price-v6';
+const CACHE_NAME = 'kream-price-v7';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -9,13 +9,21 @@ const URLS_TO_CACHE = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
 
+// HTML/JS/CSS는 network-first로 항상 최신 버전 받기
+const NETWORK_FIRST_PATTERNS = [
+  /\.html$/,
+  /\.js$/,
+  /\.css$/,
+  /manifest\.json$/,
+  /\/$/
+];
+
 // Install event - cache essential files
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         return cache.addAll(URLS_TO_CACHE).catch(err => {
-          // Ignore failures for external CDN resources
           console.warn('Cache installation warning:', err);
           return cache.addAll(URLS_TO_CACHE.filter(url => !url.includes('cdn.jsdelivr.net')));
         });
@@ -31,6 +39,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -39,74 +48,62 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch event - cache first, fallback to network
+// Fetch event - network-first for app files, cache-first for others
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
+  if (request.method !== 'GET') return;
+  if (url.protocol === 'chrome-extension:') return;
+
+  // Skip CORS proxies (always fetch fresh)
+  if (url.hostname.includes('allorigins') ||
+      url.hostname.includes('corsproxy') ||
+      url.hostname.includes('codetabs') ||
+      url.hostname.includes('cors.sh') ||
+      url.hostname.includes('cors.eu') ||
+      url.hostname.includes('thingproxy')) {
     return;
   }
 
-  // Skip chrome extensions
-  if (url.protocol === 'chrome-extension:') {
-    return;
-  }
+  const isNetworkFirst = NETWORK_FIRST_PATTERNS.some(p => p.test(url.pathname));
 
-  event.respondWith(
-    caches.match(request)
-      .then(response => {
-        // Return cached version if available
-        if (response) {
-          return response;
-        }
-
-        // Try to fetch from network
-        return fetch(request)
-          .then(response => {
-            // Check if we have a valid response
-            if (!response || response.status !== 200 || response.type === 'error') {
-              return response;
-            }
-
-            // Clone the response for caching
+  if (isNetworkFirst) {
+    // Network-first strategy
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (response && response.status === 200) {
             const responseToCache = response.clone();
-
-            // Cache new responses (except external APIs)
-            if (!url.hostname.includes('allorigins') && !url.hostname.includes('corsproxy')) {
-              caches.open(CACHE_NAME)
-                .then(cache => {
-                  cache.put(request, responseToCache);
-                });
-            }
-
-            return response;
-          })
-          .catch(() => {
-            // Offline fallback - return cached version or offline page
-            return caches.match(request)
-              .then(cachedResponse => {
-                if (cachedResponse) {
-                  return cachedResponse;
-                }
-
-                // If it's a navigation request, return the app shell
-                if (request.mode === 'navigate') {
-                  return caches.match('./index.html');
-                }
-
-                return new Response('Offline - resource not available', {
-                  status: 503,
-                  statusText: 'Service Unavailable',
-                  headers: new Headers({
-                    'Content-Type': 'text/plain'
-                  })
-                });
-              });
+            caches.open(CACHE_NAME).then(cache => cache.put(request, responseToCache));
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request).then(cached => {
+            if (cached) return cached;
+            if (request.mode === 'navigate') return caches.match('./index.html');
+            return new Response('Offline', { status: 503 });
           });
+        })
+    );
+  } else {
+    // Cache-first strategy for other resources
+    event.respondWith(
+      caches.match(request).then(response => {
+        if (response) return response;
+        return fetch(request).then(response => {
+          if (!response || response.status !== 200 || response.type === 'error') return response;
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, responseToCache));
+          return response;
+        }).catch(() => {
+          if (request.mode === 'navigate') return caches.match('./index.html');
+          return new Response('Offline', { status: 503 });
+        });
       })
-  );
+    );
+  }
 });
 
 // Handle messages from clients
