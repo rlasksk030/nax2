@@ -88,7 +88,7 @@ struct SettingsView: View {
             HStack {
                 Text("앱 이름")
                 Spacer()
-                Text("nax2")
+                Text("KreamPrice")
                     .foregroundStyle(.secondary)
             }
             HStack {
