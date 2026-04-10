@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.4.0'; // Image preprocessing + brand dictionary + status bar filter
+const APP_VERSION = '1.5.0'; // Multi-proxy fallback + timeout + 520 error handling
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -103,22 +103,55 @@ const NotificationService = {
 
 // =================== KreamService ===================
 const KreamService = {
-  proxies: [ u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`, u => `https://corsproxy.io/?${encodeURIComponent(u)}` ],
+  proxies: [
+    { name: 'corsproxy.io', build: u => `https://corsproxy.io/?${encodeURIComponent(u)}` },
+    { name: 'allorigins', build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+    { name: 'codetabs', build: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
+    { name: 'cors.sh', build: u => `https://proxy.cors.sh/${u}` },
+    { name: 'cors.eu', build: u => `https://cors.eu.org/${u}` },
+    { name: 'thingproxy', build: u => `https://thingproxy.freeboard.io/fetch/${u}` }
+  ],
   isKreamURL(url) { try { return new URL(url).hostname.includes('kream.co.kr'); } catch { return false; } },
+  async fetchWithTimeout(url, ms = 15000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      return await fetch(url, { cache: 'no-store', signal: controller.signal, headers: { 'Accept': 'text/html,application/xhtml+xml' } });
+    } finally {
+      clearTimeout(timer);
+    }
+  },
   async fetchProductInfo(urlString) {
     const url = urlString.trim();
     if (!url) throw new Error('URL이 비어 있습니다.');
     if (!this.isKreamURL(url)) throw new Error('Kream(kream.co.kr) 링크가 아닙니다.');
-    let html = null, lastError = null;
-    for (const proxyFn of this.proxies) {
+    let html = null;
+    const errors = [];
+    for (const proxy of this.proxies) {
       try {
-        const res = await fetch(proxyFn(url), { cache: 'no-store' });
-        if (!res.ok) { lastError = new Error(`HTTP ${res.status}`); continue; }
-        html = await res.text();
-        if (html && html.length > 500) break;
-      } catch (e) { lastError = e; }
+        console.log(`[KreamService] Trying ${proxy.name}...`);
+        const res = await this.fetchWithTimeout(proxy.build(url));
+        if (!res.ok) {
+          errors.push(`${proxy.name}: HTTP ${res.status}`);
+          console.warn(`[KreamService] ${proxy.name} HTTP ${res.status}`);
+          continue;
+        }
+        const text = await res.text();
+        if (text && text.length > 500 && !text.toLowerCase().includes('error code: 520')) {
+          html = text;
+          console.log(`[KreamService] Success via ${proxy.name}`);
+          break;
+        } else {
+          errors.push(`${proxy.name}: 빈 응답`);
+        }
+      } catch (e) {
+        errors.push(`${proxy.name}: ${e.name === 'AbortError' ? '타임아웃' : (e.message || '오류')}`);
+        console.warn(`[KreamService] ${proxy.name} failed:`, e);
+      }
     }
-    if (!html) throw lastError ?? new Error('페이지를 가져오지 못했습니다.');
+    if (!html) {
+      throw new Error('모든 프록시 서버에 연결 실패. 스크린샷 인식을 대신 사용해보세요.');
+    }
     const info = this.parseHTML(html);
     if (!info.brand && !info.name && !info.currentPrice) throw new Error('상품 정보를 찾지 못했습니다.');
     return info;
