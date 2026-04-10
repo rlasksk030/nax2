@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.3.1'; // Improved OCR parsing with better pattern matching
+const APP_VERSION = '1.4.0'; // Image preprocessing + brand dictionary + status bar filter
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -372,9 +372,14 @@ const App = {
     const imageStatus = document.getElementById('image-status');
     const recognizeImage = async (file) => {
       if (!file) return;
-      imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 인식 중… (첫 실행 시 모델 다운로드)</div>';
+      imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 전처리 중…</div>';
       try {
-        const { data: { text } } = await Tesseract.recognize(file, 'kor');
+        // 이미지 전처리: 상단 상태바, 하단 버튼바 제거
+        const processedBlob = await this.preprocessImage(file);
+        imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 인식 중… (첫 실행 시 모델 다운로드)</div>';
+        const { data: { text } } = await Tesseract.recognize(processedBlob, 'kor+eng', {
+          logger: m => { if (m.status === 'recognizing text') console.log(`[OCR] ${Math.round(m.progress * 100)}%`); }
+        });
         console.log('[OCR Result]', text);
         if (!text || text.trim().length < 5) {
           imageStatus.innerHTML = '<div class="status-error">⚠ 인식된 텍스트가 너무 짧습니다. 더 명확한 스크린샷을 시도해주세요.</div>';
@@ -388,7 +393,7 @@ const App = {
         if (info.retailPrice > 0) { document.getElementById('p-retail').value = info.retailPrice; filled.push('정가'); }
         if (info.size) { document.getElementById('p-size').value = info.size; filled.push('사이즈'); }
         let statusMsg = filled.length ? `✓ 인식됨: ${filled.join(', ')}` : '⚠ 일부 정보를 찾지 못했습니다.';
-        imageStatus.innerHTML = `<div class="${filled.length ? 'status-success' : 'status-error'}">${statusMsg}<br><span style="font-size:0.85em;opacity:0.7">인식된 텍스트로 값을 수정할 수 있습니다</span></div>`;
+        imageStatus.innerHTML = `<div class="${filled.length ? 'status-success' : 'status-error'}">${statusMsg}<br><span style="font-size:0.85em;opacity:0.7">정확하지 않으면 직접 수정하세요</span></div>`;
         updateCanSave();
       } catch (e) {
         const errMsg = e.message || '인식 실패';
@@ -450,64 +455,156 @@ const App = {
       this.closeModal();
     });
   },
+  async preprocessImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          // 상단 6% (상태바), 하단 8% (버튼바) 제거
+          const cropTop = Math.floor(img.height * 0.06);
+          const cropBottom = Math.floor(img.height * 0.08);
+          const newHeight = img.height - cropTop - cropBottom;
+          // 해상도 2배로 증가 (OCR 정확도 향상)
+          const scale = Math.min(2, 2000 / img.width);
+          canvas.width = Math.floor(img.width * scale);
+          canvas.height = Math.floor(newHeight * scale);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, cropTop, img.width, newHeight, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('이미지 변환 실패')), 'image/png');
+        } catch (e) { reject(e); }
+      };
+      img.onerror = () => reject(new Error('이미지 로드 실패'));
+      img.src = URL.createObjectURL(file);
+    });
+  },
   parseKreamScreenshot(text) {
     const result = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };
-    const lines = text.split('\n').filter(l => l.trim().length > 0);
 
-    // 브랜드와 상품명 추출 (처음 2-3줄에서)
-    if (lines.length >= 2) {
-      const firstLine = lines[0]?.trim() || '';
-      const secondLine = lines[1]?.trim() || '';
+    // 1. 상태 표시줄 및 불필요한 텍스트 필터링
+    const noiseRe = [
+      /^\d{1,2}:\d{2}/,      // 시간 (03:17)
+      /^\d{1,3}%$/,           // 배터리 퍼센트
+      /^[·•\-_]+$/,           // 특수문자만
+      /github\.io/i,          // URL
+      /https?:/i,             // URL
+      /^[a-z]{1,2}$/i,        // 한두 글자만
+      /^\d+$/,                // 숫자만
+      /취소|저장|상품|추가|스크린샷|인식/,  // UI 텍스트
+      /^[^\w가-힣]+$/         // 문자 없음
+    ];
+    const lines = text.split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length >= 2)
+      .filter(l => !noiseRe.some(re => re.test(l)));
 
-      // 첫 번째 줄이 브랜드인지 상품명인지 판단 (보통 브랜드는 짧음)
-      if (firstLine.length < 20 && !firstLine.match(/\d/)) {
-        result.brand = firstLine;
-        result.name = secondLine;
-      } else {
-        result.name = firstLine;
-        if (lines.length >= 3) result.brand = secondLine;
+    // 2. 가격 추출: "발매가 XXX,XXX원" 키워드 우선
+    const retailKeywords = [/발매가\s*([\d,]+)\s*원?/, /정가\s*([\d,]+)\s*원?/];
+    for (const re of retailKeywords) {
+      const m = text.match(re);
+      if (m) {
+        const val = parseInt(m[1].replace(/,/g, ''), 10);
+        if (val >= 10000) { result.retailPrice = val; break; }
       }
     }
 
-    // 가격 추출 - 여러 패턴 시도
-    // 1) "즉시 구매가 XXX원" 또는 "XXX,XXX원" 패턴
-    const currentMatch = text.match(/즉시\s*구매가\s*[\d,]+|구매가\s*[\d,]+|[\d,]{3,}/);
-    if (currentMatch) {
-      const numStr = currentMatch[0].replace(/\D/g, '');
-      result.currentPrice = parseInt(numStr, 10) || 0;
+    // 3. "즉시 구매가" 또는 "구매가" 키워드
+    const currentKeywords = [/즉시\s*구매가\s*([\d,]+)/, /구매가\s*([\d,]+)/];
+    for (const re of currentKeywords) {
+      const m = text.match(re);
+      if (m) {
+        const val = parseInt(m[1].replace(/,/g, ''), 10);
+        if (val >= 10000) { result.currentPrice = val; break; }
+      }
     }
 
-    // 2) 모든 가격 찾기
-    const allPrices = text.match(/[\d,]{3,}/g) || [];
-    const priceValues = allPrices.map(p => parseInt(p.replace(/,/g, ''), 10)).filter(p => p > 1000 && p < 10000000);
+    // 4. 모든 가격 추출 (콤마 있는 숫자 패턴)
+    const priceRegex = /(\d{1,3}(?:,\d{3})+)/g;
+    const allPrices = [];
+    let m;
+    while ((m = priceRegex.exec(text)) !== null) {
+      const val = parseInt(m[1].replace(/,/g, ''), 10);
+      if (val >= 10000 && val <= 100000000) allPrices.push(val);
+    }
+    const uniquePrices = [...new Set(allPrices)].sort((a, b) => a - b);
 
-    if (priceValues.length >= 2) {
-      // 가장 작은 가격을 현재가, 가장 큰 가격을 정가로
-      if (result.currentPrice === 0) result.currentPrice = Math.min(...priceValues);
-      result.retailPrice = Math.max(...priceValues);
-    } else if (priceValues.length === 1 && result.currentPrice === 0) {
-      result.currentPrice = priceValues[0];
+    // 현재가가 없으면 가장 많이 등장하는 가격 또는 첫 번째 가격
+    if (result.currentPrice === 0 && uniquePrices.length > 0) {
+      const counts = {};
+      allPrices.forEach(p => counts[p] = (counts[p] || 0) + 1);
+      const mostCommon = Object.keys(counts)
+        .filter(k => parseInt(k) !== result.retailPrice)
+        .sort((a, b) => counts[b] - counts[a])[0];
+      result.currentPrice = mostCommon ? parseInt(mostCommon) : uniquePrices[uniquePrices.length - 1];
     }
 
-    // 발매가 찾기 (있으면 정가로 설정)
-    const retailMatch = text.match(/발매가\s*[\d,]+/);
-    if (retailMatch) {
-      const numStr = retailMatch[0].replace(/\D/g, '');
-      result.retailPrice = parseInt(numStr, 10) || result.retailPrice;
+    // 정가가 없으면 가장 작은 가격 (보통 발매가가 가장 낮음)
+    if (result.retailPrice === 0 && uniquePrices.length >= 2) {
+      result.retailPrice = uniquePrices[0];
     }
 
-    // 사이즈 추출 (여러 패턴)
+    // 5. 브랜드 및 상품명 추출
+    // 알려진 브랜드 목록
+    const knownBrands = {
+      'stussy': 'Stussy', '스투시': 'Stussy',
+      'nike': 'Nike', '나이키': 'Nike',
+      'adidas': 'adidas', '아디다스': 'adidas',
+      'new balance': 'New Balance', '뉴발란스': 'New Balance',
+      'jordan': 'Jordan', '조던': 'Jordan',
+      'supreme': 'Supreme', '슈프림': 'Supreme',
+      'the north face': 'The North Face', '노스페이스': 'The North Face',
+      'palace': 'Palace', '팔라스': 'Palace',
+      'carhartt': 'Carhartt', '칼하트': 'Carhartt',
+      'converse': 'Converse', '컨버스': 'Converse',
+      'puma': 'Puma', '푸마': 'Puma',
+      'asics': 'Asics', '아식스': 'Asics',
+      'reebok': 'Reebok', '리복': 'Reebok',
+      'vans': 'Vans', '반스': 'Vans'
+    };
+    const lowerText = text.toLowerCase();
+    for (const [key, value] of Object.entries(knownBrands)) {
+      if (lowerText.includes(key)) {
+        result.brand = value;
+        break;
+      }
+    }
+
+    // 6. 상품명: 영문 상품명 패턴 (대문자로 시작하는 여러 단어)
+    const englishNameMatch = text.match(/[A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]*){1,6}/);
+    if (englishNameMatch) {
+      result.name = englishNameMatch[0].trim();
+    }
+
+    // 7. 영문 상품명 없으면 한글 상품명 시도 (브랜드 뒤의 긴 문장)
+    if (!result.name) {
+      for (const line of lines.slice(0, 10)) {
+        // 3자 이상, 50자 이하, 가격/숫자/UI 텍스트 아닌 것
+        if (line.length >= 5 && line.length <= 80 &&
+            !line.match(/원|₩|\$|%/) &&
+            !line.match(/발매가|구매가|거래|리뷰|트렌딩/)) {
+          result.name = line;
+          break;
+        }
+      }
+    }
+
+    // 8. 브랜드 없으면 상품명에서 첫 단어 추출
+    if (!result.brand && result.name) {
+      const firstWord = result.name.split(/\s+/)[0];
+      if (firstWord && firstWord.length >= 2) result.brand = firstWord;
+    }
+
+    // 9. 사이즈 추출
     const sizePatterns = [
       /사이즈[:\s]*(\d+\.?\d*)/,
-      /Size[:\s]*(\d+\.?\d*)/,
-      /(?:^|\s)(\d{2,3})(?:\s|$)/m
+      /Size[:\s]*(\d+\.?\d*)/i,
+      /옵션[:\s]*(\d+)/
     ];
     for (const pattern of sizePatterns) {
       const match = text.match(pattern);
-      if (match) {
-        result.size = match[1];
-        break;
-      }
+      if (match) { result.size = match[1]; break; }
     }
 
     return result;
