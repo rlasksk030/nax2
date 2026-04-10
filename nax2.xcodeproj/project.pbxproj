@@ -12,6 +12,7 @@
 		200000000000000000000003 /* ProductStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* ProductStore.swift */; };
 		200000000000000000000004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* SettingsStore.swift */; };
 		200000000000000000000005 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000006 /* NotificationService.swift */; };
+		20000000000000000000000D /* KreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000F /* KreamService.swift */; };
 		200000000000000000000006 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000007 /* ContentView.swift */; };
 		200000000000000000000007 /* WishlistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000008 /* WishlistView.swift */; };
 		200000000000000000000008 /* PriceComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000009 /* PriceComparisonView.swift */; };
@@ -36,6 +37,7 @@
 		10000000000000000000000C /* AddProductView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddProductView.swift; sourceTree = "<group>"; };
 		10000000000000000000000D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		10000000000000000000000E /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		10000000000000000000000F /* KreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KreamService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +102,7 @@
 			isa = PBXGroup;
 			children = (
 				100000000000000000000006 /* NotificationService.swift */,
+				10000000000000000000000F /* KreamService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -199,6 +202,7 @@
 				200000000000000000000003 /* ProductStore.swift in Sources */,
 				200000000000000000000004 /* SettingsStore.swift in Sources */,
 				200000000000000000000005 /* NotificationService.swift in Sources */,
+				20000000000000000000000D /* KreamService.swift in Sources */,
 				200000000000000000000006 /* ContentView.swift in Sources */,
 				200000000000000000000007 /* WishlistView.swift in Sources */,
 				200000000000000000000008 /* PriceComparisonView.swift in Sources */,
