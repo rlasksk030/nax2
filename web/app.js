@@ -354,7 +354,7 @@ const App = {
   },
   openAddModal() {
     const modal = document.getElementById('modal-content');
-    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">스크린샷 인식</div><div class="form-group"><label for="p-image" style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--separator);border-radius:8px;cursor:pointer;background:var(--tertiary-background)"><span style="font-size:18px">📸</span><span>Kream 캡처 이미지 선택</span></label><input type="file" id="p-image" accept="image/*" style="display:none"></div><div id="image-status"></div><div class="form-footer">Kream 앱 스크린샷을 업로드하면 자동으로 정보가 입력됩니다.</div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
     document.getElementById('modal-backdrop').classList.remove('hidden');
     const saveBtn = document.getElementById('add-save');
     const updateCanSave = () => {
@@ -365,6 +365,27 @@ const App = {
     };
     ['p-brand', 'p-name', 'p-current'].forEach(id => document.getElementById(id).addEventListener('input', updateCanSave));
     document.getElementById('add-cancel').addEventListener('click', () => this.closeModal());
+    const imageInput = document.getElementById('p-image');
+    const imageStatus = document.getElementById('image-status');
+    const recognizeImage = async (file) => {
+      if (!file) return;
+      imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 인식 중…</div>';
+      try {
+        const { data: { text } } = await Tesseract.recognize(file, 'kor');
+        const info = this.parseKreamScreenshot(text);
+        const filled = [];
+        if (info.brand) { document.getElementById('p-brand').value = info.brand; filled.push('브랜드'); }
+        if (info.name) { document.getElementById('p-name').value = info.name; filled.push('상품명'); }
+        if (info.currentPrice > 0) { document.getElementById('p-current').value = info.currentPrice; filled.push('현재가'); }
+        if (info.retailPrice > 0) { document.getElementById('p-retail').value = info.retailPrice; filled.push('정가'); }
+        if (info.size) { document.getElementById('p-size').value = info.size; filled.push('사이즈'); }
+        imageStatus.innerHTML = filled.length ? `<div class="status-success">✓ 인식됨: ${filled.join(', ')}</div>` : '<div class="status-error">⚠ 정보를 찾지 못했습니다.</div>';
+        updateCanSave();
+      } catch (e) {
+        imageStatus.innerHTML = `<div class="status-error">⚠ 인식 실패</div>`;
+      }
+    };
+    imageInput.addEventListener('change', (e) => recognizeImage(e.target.files?.[0]));
     const urlInput = document.getElementById('kream-url');
     let lastFetched = '';
     const fetchStatus = document.getElementById('fetch-status');
@@ -417,6 +438,21 @@ const App = {
       ProductStore.add(product);
       this.closeModal();
     });
+  },
+  parseKreamScreenshot(text) {
+    const result = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length < 3) return result;
+    result.brand = lines[0]?.trim() || '';
+    result.name = lines[1]?.trim() || '';
+    const priceMatches = text.match(/[\d,]+(?=원)/g) || [];
+    if (priceMatches.length >= 2) {
+      result.currentPrice = parseInt(priceMatches[0].replace(/,/g, ''), 10) || 0;
+      result.retailPrice = parseInt(priceMatches[priceMatches.length - 1].replace(/,/g, ''), 10) || 0;
+    }
+    const sizeMatch = text.match(/사이즈\s*(\d+\.?\d*)/);
+    if (sizeMatch) result.size = sizeMatch[1];
+    return result;
   },
   closeModal() {
     document.getElementById('modal-backdrop').classList.add('hidden');
