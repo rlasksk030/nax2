@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 사용자 설정 화면 (월 예산 한도, 알림 등)
+/// 사용자 설정 화면 (월 예산 한도, 알림, 쿨타임 등)
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsStore
     @State private var budgetText: String = ""
@@ -10,6 +10,7 @@ struct SettingsView: View {
             Form {
                 budgetSection
                 notificationSection
+                cooldownSection
                 aboutSection
             }
             .navigationTitle("설정")
@@ -49,9 +50,36 @@ struct SettingsView: View {
     private var notificationSection: some View {
         Section("알림") {
             Toggle("가격 알림 받기", isOn: $settings.notificationsEnabled)
-            Text("동일한 상품에 대한 알림은 최대 6시간에 한 번만 전송됩니다.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var cooldownSection: some View {
+        Section {
+            Stepper(
+                value: $settings.notificationCooldownHours,
+                in: NotificationService.minCooldownHours...NotificationService.maxCooldownHours,
+                step: 1
+            ) {
+                HStack {
+                    Text("쿨타임")
+                    Spacer()
+                    Text("\(Int(settings.notificationCooldownHours))시간")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+
+            HStack(spacing: 8) {
+                quickButton(hours: 1)
+                quickButton(hours: 3)
+                quickButton(hours: 6)
+                quickButton(hours: 12)
+                quickButton(hours: 24)
+            }
+        } header: {
+            Text("알림 쿨타임")
+        } footer: {
+            Text("동일한 상품에 대한 알림은 설정한 시간에 한 번만 전송됩니다. (\(Int(NotificationService.minCooldownHours))~\(Int(NotificationService.maxCooldownHours))시간)")
         }
     }
 
@@ -70,6 +98,27 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    // MARK: - Helpers
+
+    private func quickButton(hours: Double) -> some View {
+        let isSelected = Int(settings.notificationCooldownHours) == Int(hours)
+        return Button {
+            settings.notificationCooldownHours = hours
+        } label: {
+            Text("\(Int(hours))h")
+                .font(.caption)
+                .fontWeight(isSelected ? .bold : .regular)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? Color.accentColor.opacity(0.2) : Color(.tertiarySystemBackground))
+                )
+                .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+        }
+        .buttonStyle(.plain)
     }
 }
 
