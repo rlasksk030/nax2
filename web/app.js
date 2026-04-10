@@ -1,3 +1,6 @@
+// =================== App Version ===================
+const APP_VERSION = '1.3.0'; // OCR screenshot recognition added
+
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
 
