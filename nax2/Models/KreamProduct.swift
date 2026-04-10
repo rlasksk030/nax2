@@ -19,6 +19,7 @@ struct KreamProduct: Identifiable, Codable, Hashable {
     var name: String
     var brand: String
     var imageURL: String
+    var kreamURL: String
     var currentPrice: Int
     var targetPrice: Int
     var size: String
@@ -31,6 +32,7 @@ struct KreamProduct: Identifiable, Codable, Hashable {
         name: String,
         brand: String,
         imageURL: String = "",
+        kreamURL: String = "",
         currentPrice: Int,
         targetPrice: Int,
         size: String,
@@ -42,6 +44,7 @@ struct KreamProduct: Identifiable, Codable, Hashable {
         self.name = name
         self.brand = brand
         self.imageURL = imageURL
+        self.kreamURL = kreamURL
         self.currentPrice = currentPrice
         self.targetPrice = targetPrice
         self.size = size

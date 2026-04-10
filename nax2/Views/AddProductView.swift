@@ -194,11 +194,13 @@ struct AddProductView: View {
         let current = Int(currentPriceText) ?? 0
         let target = Int(targetPriceText) ?? current
         let retail = Int(retailPriceText) ?? current
+        let savedURL = kreamURL.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let product = KreamProduct(
             name: name,
             brand: brand,
             imageURL: imageURL,
+            kreamURL: savedURL,
             currentPrice: current,
             targetPrice: target,
             size: size,

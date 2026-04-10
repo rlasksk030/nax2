@@ -58,6 +58,24 @@ struct ProductDetailView: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
             }
+
+            if !product.kreamURL.isEmpty, let url = URL(string: product.kreamURL) {
+                Link(destination: url) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.right.square.fill")
+                        Text("크림에서 보기")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.primary)
+                    .foregroundStyle(Color(.systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
+            }
         }
         .padding()
         .background(Color(.secondarySystemBackground))
