@@ -1,10 +1,11 @@
-const CACHE_NAME = 'kream-price-v1';
+const CACHE_NAME = 'kream-price-v2';
 const URLS_TO_CACHE = [
-  '/web/index.html',
-  '/web/styles.css',
-  '/web/app.js',
-  '/web/icon.svg',
-  '/web/manifest.json',
+  './',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './icon.svg',
+  './manifest.json',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
 ];
 
@@ -92,7 +93,7 @@ self.addEventListener('fetch', event => {
 
                 // If it's a navigation request, return the app shell
                 if (request.mode === 'navigate') {
-                  return caches.match('/web/index.html');
+                  return caches.match('./index.html');
                 }
 
                 return new Response('Offline - resource not available', {

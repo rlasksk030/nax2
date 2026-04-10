@@ -2,12 +2,12 @@
   "name": "KreamPrice",
   "short_name": "KreamPrice",
   "description": "Kream 상품의 가격 목표 설정 및 추적 애플리케이션",
-  "start_url": "/web/index.html",
-  "scope": "/web/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#ffffff",
-  "theme_color": "#007AFF",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "icon.svg",
@@ -22,20 +22,13 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "screenshot.png",
-      "sizes": "540x720",
-      "type": "image/png"
-    }
-  ],
   "categories": ["shopping", "lifestyle"],
   "shortcuts": [
     {
       "name": "위시리스트",
       "short_name": "위시리스트",
       "description": "저장한 상품 목록 보기",
-      "url": "/web/index.html?tab=wishlist",
+      "url": "./?tab=wishlist",
       "icons": [
         {
           "src": "icon.svg",
@@ -48,7 +41,7 @@
       "name": "상품 추가",
       "short_name": "추가",
       "description": "새로운 상품 추가하기",
-      "url": "/web/index.html?tab=add",
+      "url": "./?tab=add",
       "icons": [
         {
           "src": "icon.svg",
