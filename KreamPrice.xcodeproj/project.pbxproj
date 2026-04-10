@@ -1,0 +1,401 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CC2A3B4C5D6E7F8A9B0C2D40 /* KreamPriceApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D40 /* KreamPriceApp.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D41 /* KreamProduct.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D41 /* KreamProduct.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D42 /* PriceHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D42 /* PriceHistory.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D43 /* WishlistFolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D43 /* WishlistFolder.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D44 /* KreamLinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D44 /* KreamLinkParser.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D45 /* PriceUpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D45 /* PriceUpdateService.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D46 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D46 /* NotificationService.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D47 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D47 /* ContentView.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D48 /* WishlistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D48 /* WishlistView.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D49 /* ProductRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D49 /* ProductRowView.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D4A /* PriceComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D4A /* PriceComparisonView.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D4B /* AddProductView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D4B /* AddProductView.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D4C /* ProductDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D4C /* ProductDetailView.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D4D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D4D /* SettingsView.swift */; };
+		CC2A3B4C5D6E7F8A9B0C2D4E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CC2A3B4C5D6E7F8A9B0C1D4E /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		CC2A3B4C5D6E7F8A9B0C1D3F /* KreamPrice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KreamPrice.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC2A3B4C5D6E7F8A9B0C1D40 /* KreamPriceApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KreamPriceApp.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D41 /* KreamProduct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KreamProduct.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D42 /* PriceHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceHistory.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D43 /* WishlistFolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistFolder.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D44 /* KreamLinkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KreamLinkParser.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D45 /* PriceUpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceUpdateService.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D46 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D47 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D48 /* WishlistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistView.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D49 /* ProductRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductRowView.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D4A /* PriceComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceComparisonView.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D4B /* AddProductView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddProductView.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D4C /* ProductDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductDetailView.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D4D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D4E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CC2A3B4C5D6E7F8A9B0C1D4F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CC2A3B4C5D6E7F8A9B0C1D37 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		CC2A3B4C5D6E7F8A9B0C1D2E /* root */ = {
+			isa = PBXGroup;
+			children = (
+				CC2A3B4C5D6E7F8A9B0C1D2F /* KreamPrice */,
+				CC2A3B4C5D6E7F8A9B0C1D30 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CC2A3B4C5D6E7F8A9B0C1D2F /* KreamPrice */ = {
+			isa = PBXGroup;
+			children = (
+				CC2A3B4C5D6E7F8A9B0C1D40 /* KreamPriceApp.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D31 /* Models */,
+				CC2A3B4C5D6E7F8A9B0C1D32 /* Services */,
+				CC2A3B4C5D6E7F8A9B0C1D33 /* Views */,
+				CC2A3B4C5D6E7F8A9B0C1D4E /* Assets.xcassets */,
+				CC2A3B4C5D6E7F8A9B0C1D4F /* Info.plist */,
+			);
+			path = KreamPrice;
+			sourceTree = "<group>";
+		};
+		CC2A3B4C5D6E7F8A9B0C1D30 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CC2A3B4C5D6E7F8A9B0C1D3F /* KreamPrice.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CC2A3B4C5D6E7F8A9B0C1D31 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				CC2A3B4C5D6E7F8A9B0C1D41 /* KreamProduct.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D42 /* PriceHistory.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D43 /* WishlistFolder.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		CC2A3B4C5D6E7F8A9B0C1D32 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				CC2A3B4C5D6E7F8A9B0C1D44 /* KreamLinkParser.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D45 /* PriceUpdateService.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D46 /* NotificationService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		CC2A3B4C5D6E7F8A9B0C1D33 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				CC2A3B4C5D6E7F8A9B0C1D47 /* ContentView.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D48 /* WishlistView.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D49 /* ProductRowView.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D4A /* PriceComparisonView.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D4B /* AddProductView.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D4C /* ProductDetailView.swift */,
+				CC2A3B4C5D6E7F8A9B0C1D4D /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CC2A3B4C5D6E7F8A9B0C1D35 /* KreamPrice */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC2A3B4C5D6E7F8A9B0C1D3D /* Build configuration list for PBXNativeTarget "KreamPrice" */;
+			buildPhases = (
+				CC2A3B4C5D6E7F8A9B0C1D36 /* Sources */,
+				CC2A3B4C5D6E7F8A9B0C1D37 /* Frameworks */,
+				CC2A3B4C5D6E7F8A9B0C1D38 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KreamPrice;
+			productName = KreamPrice;
+			productReference = CC2A3B4C5D6E7F8A9B0C1D3F /* KreamPrice.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CC2A3B4C5D6E7F8A9B0C1D34 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					CC2A3B4C5D6E7F8A9B0C1D35 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = CC2A3B4C5D6E7F8A9B0C1D3E /* Build configuration list for PBXProject "KreamPrice" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CC2A3B4C5D6E7F8A9B0C1D2E;
+			productRefGroup = CC2A3B4C5D6E7F8A9B0C1D30 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CC2A3B4C5D6E7F8A9B0C1D35 /* KreamPrice */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CC2A3B4C5D6E7F8A9B0C1D38 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC2A3B4C5D6E7F8A9B0C2D4E /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CC2A3B4C5D6E7F8A9B0C1D36 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC2A3B4C5D6E7F8A9B0C2D40 /* KreamPriceApp.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D41 /* KreamProduct.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D42 /* PriceHistory.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D43 /* WishlistFolder.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D44 /* KreamLinkParser.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D45 /* PriceUpdateService.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D46 /* NotificationService.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D47 /* ContentView.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D48 /* WishlistView.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D49 /* ProductRowView.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D4A /* PriceComparisonView.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D4B /* AddProductView.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D4C /* ProductDetailView.swift in Sources */,
+				CC2A3B4C5D6E7F8A9B0C2D4D /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CC2A3B4C5D6E7F8A9B0C1D39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KreamPrice/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kreamprice.KreamPrice;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CC2A3B4C5D6E7F8A9B0C1D3A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KreamPrice/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kreamprice.KreamPrice;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CC2A3B4C5D6E7F8A9B0C1D3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CC2A3B4C5D6E7F8A9B0C1D3C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CC2A3B4C5D6E7F8A9B0C1D3D /* Build configuration list for PBXNativeTarget "KreamPrice" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC2A3B4C5D6E7F8A9B0C1D39 /* Debug */,
+				CC2A3B4C5D6E7F8A9B0C1D3A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC2A3B4C5D6E7F8A9B0C1D3E /* Build configuration list for PBXProject "KreamPrice" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC2A3B4C5D6E7F8A9B0C1D3B /* Debug */,
+				CC2A3B4C5D6E7F8A9B0C1D3C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = CC2A3B4C5D6E7F8A9B0C1D34 /* Project object */;
+}
