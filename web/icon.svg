@@ -1,0 +1,22 @@
+<svg viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="192" height="192" rx="45" fill="#007AFF"/>
+
+  <!-- Heart shape with price tag -->
+  <g transform="translate(96, 96)">
+    <!-- Heart outline -->
+    <path d="M 0 65 C -35 35 -60 10 -60 -15 C -60 -35 -45 -50 -30 -50 C -15 -50 0 -35 0 -20 C 0 -35 15 -50 30 -50 C 45 -50 60 -35 60 -15 C 60 10 35 35 0 65 Z"
+          fill="white" stroke="none"/>
+
+    <!-- Price tag on heart -->
+    <g transform="translate(20, -25)">
+      <!-- Tag rectangle -->
+      <rect x="-18" y="-12" width="36" height="24" rx="4" fill="#FFD700" opacity="0.9"/>
+      <!-- Tag circle holes -->
+      <circle cx="-8" cy="0" r="2.5" fill="white"/>
+      <circle cx="8" cy="0" r="2.5" fill="white"/>
+      <!-- Dollar/Won symbol -->
+      <text x="0" y="4" font-size="12" font-weight="bold" fill="white" text-anchor="middle">₩</text>
+    </g>
+  </g>
+</svg>
