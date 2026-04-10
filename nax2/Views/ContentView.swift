@@ -38,10 +38,9 @@ struct ContentView: View {
         }
         .environmentObject(store)
         .environmentObject(settings)
-        .onChange(of: selectedTab) { newValue in
-            if newValue == 3 {
+        .onChange(of: selectedTab) {
+            if selectedTab == 3 {
                 showingAddSheet = true
-                // 시트가 닫힌 뒤에도 추가 탭에 머무르지 않도록 즉시 위시리스트로 되돌립니다.
                 selectedTab = 0
             }
         }

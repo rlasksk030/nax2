@@ -26,9 +26,9 @@ struct SettingsView: View {
         Section {
             TextField("월 예산 (원)", text: $budgetText)
                 .keyboardType(.numberPad)
-                .onChange(of: budgetText) { newValue in
-                    let digits = newValue.filter { $0.isNumber }
-                    if digits != newValue {
+                .onChange(of: budgetText) {
+                    let digits = budgetText.filter { $0.isNumber }
+                    if digits != budgetText {
                         budgetText = digits
                     }
                     settings.monthlyBudget = Int(digits) ?? 0
