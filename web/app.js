@@ -372,9 +372,14 @@ const App = {
     const imageStatus = document.getElementById('image-status');
     const recognizeImage = async (file) => {
       if (!file) return;
-      imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 인식 중…</div>';
+      imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 인식 중… (첫 실행 시 모델 다운로드)</div>';
       try {
         const { data: { text } } = await Tesseract.recognize(file, 'kor');
+        console.log('[OCR Result]', text);
+        if (!text || text.trim().length < 5) {
+          imageStatus.innerHTML = '<div class="status-error">⚠ 인식된 텍스트가 너무 짧습니다. 더 명확한 스크린샷을 시도해주세요.</div>';
+          return;
+        }
         const info = this.parseKreamScreenshot(text);
         const filled = [];
         if (info.brand) { document.getElementById('p-brand').value = info.brand; filled.push('브랜드'); }
@@ -382,10 +387,13 @@ const App = {
         if (info.currentPrice > 0) { document.getElementById('p-current').value = info.currentPrice; filled.push('현재가'); }
         if (info.retailPrice > 0) { document.getElementById('p-retail').value = info.retailPrice; filled.push('정가'); }
         if (info.size) { document.getElementById('p-size').value = info.size; filled.push('사이즈'); }
-        imageStatus.innerHTML = filled.length ? `<div class="status-success">✓ 인식됨: ${filled.join(', ')}</div>` : '<div class="status-error">⚠ 정보를 찾지 못했습니다.</div>';
+        let statusMsg = filled.length ? `✓ 인식됨: ${filled.join(', ')}` : '⚠ 일부 정보를 찾지 못했습니다.';
+        imageStatus.innerHTML = `<div class="${filled.length ? 'status-success' : 'status-error'}">${statusMsg}<br><span style="font-size:0.85em;opacity:0.7">인식된 텍스트로 값을 수정할 수 있습니다</span></div>`;
         updateCanSave();
       } catch (e) {
-        imageStatus.innerHTML = `<div class="status-error">⚠ 인식 실패</div>`;
+        const errMsg = e.message || '인식 실패';
+        imageStatus.innerHTML = `<div class="status-error">⚠ ${errMsg}<br><span style="font-size:0.85em">다시 시도하거나 URL을 직접 입력하세요</span></div>`;
+        console.error('[OCR Error]', e);
       }
     };
     imageInput.addEventListener('change', (e) => recognizeImage(e.target.files?.[0]));
@@ -444,17 +452,64 @@ const App = {
   },
   parseKreamScreenshot(text) {
     const result = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };
-    const lines = text.split('\n').filter(l => l.trim());
-    if (lines.length < 3) return result;
-    result.brand = lines[0]?.trim() || '';
-    result.name = lines[1]?.trim() || '';
-    const priceMatches = text.match(/[\d,]+(?=원)/g) || [];
-    if (priceMatches.length >= 2) {
-      result.currentPrice = parseInt(priceMatches[0].replace(/,/g, ''), 10) || 0;
-      result.retailPrice = parseInt(priceMatches[priceMatches.length - 1].replace(/,/g, ''), 10) || 0;
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+
+    // 브랜드와 상품명 추출 (처음 2-3줄에서)
+    if (lines.length >= 2) {
+      const firstLine = lines[0]?.trim() || '';
+      const secondLine = lines[1]?.trim() || '';
+
+      // 첫 번째 줄이 브랜드인지 상품명인지 판단 (보통 브랜드는 짧음)
+      if (firstLine.length < 20 && !firstLine.match(/\d/)) {
+        result.brand = firstLine;
+        result.name = secondLine;
+      } else {
+        result.name = firstLine;
+        if (lines.length >= 3) result.brand = secondLine;
+      }
     }
-    const sizeMatch = text.match(/사이즈\s*(\d+\.?\d*)/);
-    if (sizeMatch) result.size = sizeMatch[1];
+
+    // 가격 추출 - 여러 패턴 시도
+    // 1) "즉시 구매가 XXX원" 또는 "XXX,XXX원" 패턴
+    const currentMatch = text.match(/즉시\s*구매가\s*[\d,]+|구매가\s*[\d,]+|[\d,]{3,}/);
+    if (currentMatch) {
+      const numStr = currentMatch[0].replace(/\D/g, '');
+      result.currentPrice = parseInt(numStr, 10) || 0;
+    }
+
+    // 2) 모든 가격 찾기
+    const allPrices = text.match(/[\d,]{3,}/g) || [];
+    const priceValues = allPrices.map(p => parseInt(p.replace(/,/g, ''), 10)).filter(p => p > 1000 && p < 10000000);
+
+    if (priceValues.length >= 2) {
+      // 가장 작은 가격을 현재가, 가장 큰 가격을 정가로
+      if (result.currentPrice === 0) result.currentPrice = Math.min(...priceValues);
+      result.retailPrice = Math.max(...priceValues);
+    } else if (priceValues.length === 1 && result.currentPrice === 0) {
+      result.currentPrice = priceValues[0];
+    }
+
+    // 발매가 찾기 (있으면 정가로 설정)
+    const retailMatch = text.match(/발매가\s*[\d,]+/);
+    if (retailMatch) {
+      const numStr = retailMatch[0].replace(/\D/g, '');
+      result.retailPrice = parseInt(numStr, 10) || result.retailPrice;
+    }
+
+    // 사이즈 추출 (여러 패턴)
+    const sizePatterns = [
+      /사이즈[:\s]*(\d+\.?\d*)/,
+      /Size[:\s]*(\d+\.?\d*)/,
+      /(?:^|\s)(\d{2,3})(?:\s|$)/m
+    ];
+    for (const pattern of sizePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        result.size = match[1];
+        break;
+      }
+    }
+
     return result;
   },
   closeModal() {
