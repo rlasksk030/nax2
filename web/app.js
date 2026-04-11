@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.7.0'; // Edit/multi-OCR/personal sizes/weekly history
+const APP_VERSION = '1.7.1'; // Wishlist Kream link, history migration, image previews
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -45,7 +45,29 @@ const ProductStore = {
   init() {
     const saved = loadJSON(STORAGE_KEYS.products, null);
     this.products = (saved && Array.isArray(saved) && saved.length > 0) ? saved : this.getSamples();
+    this.migratePriceHistory();
     if (!saved) this.save();
+  },
+  migratePriceHistory() {
+    // 가격 히스토리가 모두 일주일 이전이면 날짜를 최근으로 시프트 (상대적 간격 유지)
+    const now = Date.now();
+    const weekAgo = now - 7 * 86400000;
+    let migrated = false;
+    this.products.forEach(p => {
+      if (!p.priceHistory || p.priceHistory.length === 0) return;
+      const times = p.priceHistory.map(r => new Date(r.date).getTime()).filter(t => !isNaN(t));
+      if (times.length === 0) return;
+      const latestTime = Math.max(...times);
+      if (latestTime < weekAgo) {
+        const shift = now - latestTime;
+        p.priceHistory.forEach(r => {
+          const t = new Date(r.date).getTime();
+          if (!isNaN(t)) r.date = new Date(t + shift).toISOString();
+        });
+        migrated = true;
+      }
+    });
+    if (migrated) saveJSON(STORAGE_KEYS.products, this.products);
   },
   save() { saveJSON(STORAGE_KEYS.products, this.products); this.listeners.forEach(fn => fn()); },
   subscribe(fn) { this.listeners.push(fn); return () => { this.listeners = this.listeners.filter(l => l !== fn); }; },
@@ -340,7 +362,10 @@ const App = {
     products.forEach(p => {
       const cheaper = p.currentPrice < p.retailPrice;
       const sizeLabel = p.size ? `사이즈 ${escapeHTML(p.size)}` : '';
-      html += `<div class="wishlist-row" data-id="${p.id}"><div class="row-actions"><button class="row-btn edit-btn" data-edit="${p.id}">수정</button><button class="row-btn delete-btn" data-delete="${p.id}">삭제</button></div><div class="row-header"><div class="brand-line">${escapeHTML(p.brand)}</div></div><div class="name">${escapeHTML(p.name)}</div><div class="price-line"><span class="price">${fmtNumber(p.currentPrice)}원</span><span class="target">${sizeLabel ? sizeLabel + ' · ' : ''}목표 ${fmtNumber(p.targetPrice)}원</span></div>${cheaper ? `<div class="cheap-badge">↓ 정가 대비 ${fmtNumber(p.retailPrice - p.currentPrice)}원 저렴</div>` : ''}</div>`;
+      const kreamHref = p.kreamURL && p.kreamURL.trim()
+        ? p.kreamURL
+        : `https://kream.co.kr/search?keyword=${encodeURIComponent((p.brand || '') + ' ' + (p.name || '')).trim()}`;
+      html += `<div class="wishlist-row" data-id="${p.id}"><div class="row-actions"><a class="row-btn kream-btn" href="${escapeAttr(kreamHref)}" target="_blank" rel="noopener" data-kream="1">크림</a><button class="row-btn edit-btn" data-edit="${p.id}">수정</button><button class="row-btn delete-btn" data-delete="${p.id}">삭제</button></div><div class="row-header"><div class="brand-line">${escapeHTML(p.brand)}</div></div><div class="name">${escapeHTML(p.name)}</div><div class="price-line"><span class="price">${fmtNumber(p.currentPrice)}원</span><span class="target">${sizeLabel ? sizeLabel + ' · ' : ''}목표 ${fmtNumber(p.targetPrice)}원</span></div>${cheaper ? `<div class="cheap-badge">↓ 정가 대비 ${fmtNumber(p.retailPrice - p.currentPrice)}원 저렴</div>` : ''}</div>`;
     });
     return html;
   },
@@ -349,7 +374,7 @@ const App = {
     if (toggle) toggle.addEventListener('change', e => { this.wishlistFilter = e.target.checked; this.render(); });
     document.querySelectorAll('.wishlist-row').forEach(row => {
       row.addEventListener('click', e => {
-        if (e.target.closest('[data-delete]') || e.target.closest('[data-edit]')) return;
+        if (e.target.closest('[data-delete]') || e.target.closest('[data-edit]') || e.target.closest('[data-kream]')) return;
         this.openDetail(row.dataset.id);
       });
     });
@@ -464,7 +489,7 @@ const App = {
   openAddModal() {
     const modal = document.getElementById('modal-content');
     const defaultSize = SettingsStore.shoeSize || '';
-    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">스크린샷 인식 (최대 3장)</div><div class="form-group"><label for="p-image" style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--separator);border-radius:8px;cursor:pointer;background:var(--tertiary-background)"><span style="font-size:18px">📸</span><span>Kream 캡처 이미지 선택 (최대 3장)</span></label><input type="file" id="p-image" accept="image/*" multiple style="display:none"></div><div id="image-status"></div><div class="form-footer">여러 장의 스크린샷을 한 번에 선택하면 종합해서 정보를 자동 입력합니다.</div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(defaultSize)}"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">스크린샷 인식 (최대 3장)</div><div class="form-group"><label for="p-image" style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--separator);border-radius:8px;cursor:pointer;background:var(--tertiary-background)"><span style="font-size:18px">📸</span><span>Kream 캡처 이미지 선택 (최대 3장)</span></label><input type="file" id="p-image" accept="image/*" multiple style="display:none"></div><div id="image-preview-grid" class="image-preview-grid"></div><div id="image-status"></div><div class="form-footer">여러 장의 스크린샷을 한 번에 선택하면 종합해서 정보를 자동 입력합니다. 첨부 후 사진을 보고 아래 입력란을 직접 수정할 수 있습니다.</div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(defaultSize)}"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
     document.getElementById('modal-backdrop').classList.remove('hidden');
     const saveBtn = document.getElementById('add-save');
     const updateCanSave = () => {
@@ -477,8 +502,30 @@ const App = {
     document.getElementById('add-cancel').addEventListener('click', () => this.closeModal());
     const imageInput = document.getElementById('p-image');
     const imageStatus = document.getElementById('image-status');
+    const previewGrid = document.getElementById('image-preview-grid');
+    const renderPreviews = (files) => {
+      previewGrid.innerHTML = '';
+      Array.from(files).slice(0, 3).forEach((file, idx) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'image-preview-item';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.alt = `캡처 ${idx + 1}`;
+        img.onload = () => URL.revokeObjectURL(img.src);
+        const label = document.createElement('span');
+        label.className = 'image-preview-label';
+        label.textContent = `${idx + 1}`;
+        wrapper.appendChild(img);
+        wrapper.appendChild(label);
+        previewGrid.appendChild(wrapper);
+      });
+    };
     const recognizeImages = async (files) => {
-      if (!files || files.length === 0) return;
+      if (!files || files.length === 0) {
+        previewGrid.innerHTML = '';
+        return;
+      }
+      renderPreviews(files);
       const list = Array.from(files).slice(0, 3); // 최대 3장
       const total = list.length;
       const parsed = [];
