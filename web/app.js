@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.7.2'; // Baseline 7-day history + chart fallback
+const APP_VERSION = '1.7.3'; // Real Kream price history + improved OCR
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -222,6 +222,7 @@ const KreamService = {
     }
     const info = this.parseHTML(html);
     if (!info.brand && !info.name && !info.currentPrice) throw new Error('상품 정보를 찾지 못했습니다.');
+    info._html = html; // 가격 변동 추출용 (저장 직전에만 사용)
     return info;
   },
   parseHTML(html) {
@@ -303,6 +304,193 @@ const KreamService = {
     if (!cleaned) return { brand: null, name: null };
     const spaceIdx = cleaned.indexOf(' ');
     return spaceIdx > 0 ? { brand: cleaned.slice(0, spaceIdx), name: cleaned.slice(spaceIdx + 1) } : { brand: null, name: cleaned };
+  },
+  // ========== 가격 변동 정보 추출 ==========
+  extractProductId(urlString) {
+    try {
+      const url = new URL(urlString);
+      const m = url.pathname.match(/products\/(\d+)/);
+      return m ? m[1] : null;
+    } catch {
+      const m = String(urlString || '').match(/products\/(\d+)/);
+      return m ? m[1] : null;
+    }
+  },
+  // 다양한 모양의 가격 기록 배열을 { date, price } 형태로 정규화
+  normalizePriceHistory(arr) {
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    const dateKeys = ['date', 'createdAt', 'created_at', 'time', 'timestamp', 'transactedAt', 'transacted_at', 'tradedAt', 'traded_at', 'x'];
+    const priceKeys = ['price', 'value', 'amount', 'tradePrice', 'trade_price', 'y'];
+    for (const raw of arr) {
+      if (!raw) continue;
+      // [timestamp, price] 튜플
+      if (Array.isArray(raw) && raw.length >= 2) {
+        const t = raw[0], p = raw[1];
+        const iso = this.toISODate(t);
+        const price = this.toPriceNumber(p);
+        if (iso && price) out.push({ date: iso, price });
+        continue;
+      }
+      if (typeof raw !== 'object') continue;
+      let d = null, p = null;
+      for (const k of dateKeys) { if (raw[k] != null) { d = raw[k]; break; } }
+      for (const k of priceKeys) { if (raw[k] != null) { p = raw[k]; break; } }
+      const iso = this.toISODate(d);
+      const price = this.toPriceNumber(p);
+      if (iso && price) out.push({ date: iso, price });
+    }
+    // 중복 제거 + 날짜순 정렬
+    const seen = new Set();
+    const dedup = [];
+    out.sort((a, b) => new Date(a.date) - new Date(b.date));
+    for (const e of out) {
+      const key = e.date.slice(0, 10) + ':' + e.price;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      dedup.push({ id: uuid(), date: e.date, price: e.price });
+    }
+    return dedup;
+  },
+  toISODate(v) {
+    if (v == null) return null;
+    if (typeof v === 'number') {
+      // ms vs seconds
+      const ms = v > 10_000_000_000 ? v : v * 1000;
+      const d = new Date(ms);
+      return isNaN(d) ? null : d.toISOString();
+    }
+    if (typeof v === 'string') {
+      if (/^\d+$/.test(v)) return this.toISODate(parseInt(v, 10));
+      const d = new Date(v);
+      return isNaN(d) ? null : d.toISOString();
+    }
+    return null;
+  },
+  toPriceNumber(v) {
+    if (v == null) return null;
+    const digits = String(v).replace(/[^\d]/g, '');
+    if (!digits) return null;
+    const n = parseInt(digits, 10);
+    return (!isNaN(n) && n >= 1000) ? n : null;
+  },
+  // JSON 텍스트 내부에서 가격 기록 배열 탐색 (quotes/charts/priceHistory 등)
+  tryParsePriceHistoryJSON(text) {
+    if (!text) return [];
+    let data;
+    try { data = JSON.parse(text); } catch { return []; }
+    const candidates = [];
+    const walk = (node, depth = 0) => {
+      if (!node || depth > 6) return;
+      if (Array.isArray(node)) {
+        // 객체 배열이면서 date/price 같은 키를 가진 경우
+        if (node.length >= 2 && typeof node[0] === 'object' && node[0] !== null) {
+          const sample = node[0];
+          const keys = Object.keys(sample);
+          const hasDate = keys.some(k => /date|time|created|traded|transacted|^x$/i.test(k));
+          const hasPrice = keys.some(k => /price|value|amount|^y$/i.test(k));
+          if (hasDate && hasPrice) candidates.push(node);
+        }
+        node.forEach(it => walk(it, depth + 1));
+        return;
+      }
+      if (typeof node === 'object') {
+        for (const [k, v] of Object.entries(node)) {
+          if (/quote|chart|price.?history|sales|history|trade|transaction/i.test(k) && Array.isArray(v)) {
+            candidates.push(v);
+          }
+          walk(v, depth + 1);
+        }
+      }
+    };
+    walk(data);
+    // 가장 긴 후보를 선택
+    candidates.sort((a, b) => b.length - a.length);
+    for (const c of candidates) {
+      const norm = this.normalizePriceHistory(c);
+      if (norm.length >= 2) return norm;
+    }
+    return [];
+  },
+  // HTML 내부에 임베드된 JSON(next/nuxt state 등)에서 가격 기록 탐색
+  extractPriceHistoryFromHTML(html) {
+    if (!html) return [];
+    // 1) priceHistory / quotes / charts 직접 매치
+    const patterns = [
+      /"price_?[Hh]istory"\s*:\s*(\[[^\]]*\])/,
+      /"quotes"\s*:\s*(\[[^\]]*\])/,
+      /"sales_?[Cc]hart"\s*:\s*(\[[^\]]*\])/,
+      /"charts"\s*:\s*(\[[^\]]*\])/,
+      /"trade_?[Hh]istory"\s*:\s*(\[[^\]]*\])/
+    ];
+    for (const re of patterns) {
+      const m = html.match(re);
+      if (m) {
+        try {
+          const arr = JSON.parse(m[1]);
+          const norm = this.normalizePriceHistory(arr);
+          if (norm.length >= 2) return norm;
+        } catch {}
+      }
+    }
+    // 2) __NEXT_DATA__ / __NUXT__ 상태 파싱
+    const stateMatches = [
+      /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+      /window\.__NUXT__\s*=\s*(\{[\s\S]*?\});/,
+      /window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});/
+    ];
+    for (const re of stateMatches) {
+      const m = html.match(re);
+      if (m) {
+        const norm = this.tryParsePriceHistoryJSON(m[1]);
+        if (norm.length >= 2) return norm;
+      }
+    }
+    return [];
+  },
+  // Kream API 엔드포인트 추정 호출
+  async fetchPriceHistoryAPI(productId) {
+    if (!productId) return [];
+    const endpoints = [
+      `https://kream.co.kr/api/products/${productId}/quotes`,
+      `https://kream.co.kr/api/v2/products/${productId}/quotes?per_page=60`,
+      `https://kream.co.kr/api/products/${productId}/sales_charts?period=1m`,
+      `https://kream.co.kr/api/products/${productId}/sales_charts?period=3m`,
+      `https://kream.co.kr/api/products/${productId}/charts`
+    ];
+    for (const endpoint of endpoints) {
+      for (const proxy of this.proxies) {
+        try {
+          const res = await this.fetchWithTimeout(proxy.build(endpoint), 10000);
+          if (!res.ok) continue;
+          const text = await res.text();
+          if (!text || text.length < 10) continue;
+          const norm = this.tryParsePriceHistoryJSON(text);
+          if (norm.length >= 2) {
+            console.log(`[KreamService] Price history via ${proxy.name} @ ${endpoint}: ${norm.length} entries`);
+            return norm;
+          }
+        } catch (e) {
+          // 다음 프록시/엔드포인트로 넘어감
+        }
+      }
+    }
+    return [];
+  },
+  // 상위 레벨: URL 또는 HTML에서 가격 변동 기록 추출
+  async fetchPriceHistory(urlString, htmlHint) {
+    const productId = this.extractProductId(urlString);
+    // 1) HTML 내부에서 즉시 추출 시도
+    if (htmlHint) {
+      const fromHTML = this.extractPriceHistoryFromHTML(htmlHint);
+      if (fromHTML.length >= 2) return fromHTML;
+    }
+    // 2) API 엔드포인트 시도
+    if (productId) {
+      const fromAPI = await this.fetchPriceHistoryAPI(productId);
+      if (fromAPI.length >= 2) return fromAPI;
+    }
+    return [];
   }
 };
 
@@ -606,12 +794,14 @@ const App = {
     imageInput.addEventListener('change', (e) => recognizeImages(e.target.files));
     const urlInput = document.getElementById('kream-url');
     let lastFetched = '';
+    let fetchedHistory = [];
     const fetchStatus = document.getElementById('fetch-status');
     const doFetch = async (force) => {
       const url = urlInput.value.trim();
       if (!url) return;
       if (!force && url === lastFetched) return;
       lastFetched = url;
+      fetchedHistory = [];
       fetchStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 가져오는 중…</div>';
       try {
         const info = await KreamService.fetchProductInfo(url);
@@ -628,8 +818,26 @@ const App = {
           document.getElementById('p-retail').value = info.retailPrice;
           filled.push('정가');
         }
-        fetchStatus.innerHTML = filled.length ? `<div class="status-success">✓ 자동 입력: ${filled.join(', ')}</div>` : '<div class="status-error">⚠ 상품 정보를 찾지 못했습니다.</div>';
+        fetchStatus.innerHTML = filled.length
+          ? `<div class="status-success">✓ 자동 입력: ${filled.join(', ')}</div><div class="status-error" id="history-status" style="margin-top:6px"><span class="spinner"></span> 가격 변동 이력 가져오는 중…</div>`
+          : '<div class="status-error">⚠ 상품 정보를 찾지 못했습니다.</div>';
         updateCanSave();
+        // 가격 변동 이력: HTML + API 순으로 시도
+        if (filled.length) {
+          try {
+            const history = await KreamService.fetchPriceHistory(url, info._html);
+            const hs = document.getElementById('history-status');
+            if (history && history.length >= 2) {
+              fetchedHistory = history;
+              if (hs) hs.outerHTML = `<div class="status-success" style="margin-top:6px">✓ 가격 변동 ${history.length}건 수집됨</div>`;
+            } else if (hs) {
+              hs.outerHTML = '<div class="form-footer" style="margin-top:6px">· 가격 변동 이력을 찾지 못해 추정값을 사용합니다.</div>';
+            }
+          } catch (e) {
+            const hs = document.getElementById('history-status');
+            if (hs) hs.outerHTML = '<div class="form-footer" style="margin-top:6px">· 가격 변동 수집 실패 (추정값 사용)</div>';
+          }
+        }
       } catch (e) {
         fetchStatus.innerHTML = `<div class="status-error">⚠ ${e.message || '가져오기 실패'}</div>`;
       }
@@ -643,6 +851,18 @@ const App = {
       const current = parseInt(document.getElementById('p-current').value, 10) || 0;
       const target = parseInt(document.getElementById('p-target').value, 10) || current;
       const retail = parseInt(document.getElementById('p-retail').value, 10) || current;
+      // 실제 가져온 가격 변동이 있으면 사용하고, 없으면 추정 베이스라인 사용
+      let history;
+      if (fetchedHistory && fetchedHistory.length >= 2) {
+        history = fetchedHistory.slice();
+        // 마지막 항목이 현재가와 다르면 최신 엔트리 추가
+        const last = history[history.length - 1];
+        if (!last || last.price !== current) {
+          history.push({ id: uuid(), date: new Date().toISOString(), price: current });
+        }
+      } else {
+        history = buildBaselineHistory(current);
+      }
       const product = createProduct({
         name: document.getElementById('p-name').value.trim(),
         brand: document.getElementById('p-brand').value.trim(),
@@ -651,7 +871,7 @@ const App = {
         currentPrice: current,
         targetPrice: target,
         retailPrice: retail,
-        priceHistory: buildBaselineHistory(current)
+        priceHistory: history
       });
       ProductStore.add(product);
       this.closeModal();
@@ -661,9 +881,34 @@ const App = {
     const product = ProductStore.products.find(p => p.id === id);
     if (!product) return;
     const modal = document.getElementById('modal-content');
-    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="edit-cancel">취소</button><h2>상품 수정</h2><button class="confirm" id="edit-save">저장</button></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="e-brand" placeholder="브랜드" value="${escapeAttr(product.brand)}"><input type="text" id="e-name" placeholder="상품명" value="${escapeAttr(product.name)}"><input type="text" id="e-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(product.size)}" inputmode="numeric"></div><div class="form-footer">내 사이즈에 해당하는 가격을 아래에 입력하세요.</div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="e-current" placeholder="내 사이즈 현재가" value="${product.currentPrice || ''}" inputmode="numeric"><input type="number" id="e-target" placeholder="목표가" value="${product.targetPrice || ''}" inputmode="numeric"><input type="number" id="e-retail" placeholder="정가" value="${product.retailPrice || ''}" inputmode="numeric"></div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><input type="url" id="e-url" placeholder="https://kream.co.kr/products/…" value="${escapeAttr(product.kreamURL || '')}"></div></div>`;
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="edit-cancel">취소</button><h2>상품 수정</h2><button class="confirm" id="edit-save">저장</button></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="e-brand" placeholder="브랜드" value="${escapeAttr(product.brand)}"><input type="text" id="e-name" placeholder="상품명" value="${escapeAttr(product.name)}"><input type="text" id="e-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(product.size)}" inputmode="numeric"></div><div class="form-footer">내 사이즈에 해당하는 가격을 아래에 입력하세요.</div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="e-current" placeholder="내 사이즈 현재가" value="${product.currentPrice || ''}" inputmode="numeric"><input type="number" id="e-target" placeholder="목표가" value="${product.targetPrice || ''}" inputmode="numeric"><input type="number" id="e-retail" placeholder="정가" value="${product.retailPrice || ''}" inputmode="numeric"></div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><input type="url" id="e-url" placeholder="https://kream.co.kr/products/…" value="${escapeAttr(product.kreamURL || '')}"></div>${product.kreamURL ? '<button class="refresh-history-btn" id="edit-refresh-history" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 크림에서 가격 변동 새로고침</button><div id="edit-refresh-status"></div>' : ''}</div>`;
     document.getElementById('modal-backdrop').classList.remove('hidden');
     document.getElementById('edit-cancel').addEventListener('click', () => this.closeModal());
+    let refreshedHistory = null;
+    const refreshBtn = document.getElementById('edit-refresh-history');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        const url = document.getElementById('e-url').value.trim();
+        if (!url) return;
+        const rs = document.getElementById('edit-refresh-status');
+        rs.innerHTML = '<div class="status-error"><span class="spinner"></span> 가져오는 중…</div>';
+        try {
+          // 상품 정보도 같이 갱신 (현재가/정가)
+          const info = await KreamService.fetchProductInfo(url);
+          if (info.currentPrice > 0) document.getElementById('e-current').value = info.currentPrice;
+          if (info.retailPrice > 0) document.getElementById('e-retail').value = info.retailPrice;
+          const history = await KreamService.fetchPriceHistory(url, info._html);
+          if (history && history.length >= 2) {
+            refreshedHistory = history;
+            rs.innerHTML = `<div class="status-success">✓ 가격 변동 ${history.length}건 수집됨. 저장을 눌러 반영하세요.</div>`;
+          } else {
+            rs.innerHTML = '<div class="status-error">⚠ 가격 변동 이력을 찾지 못했습니다.</div>';
+          }
+        } catch (e) {
+          rs.innerHTML = `<div class="status-error">⚠ ${e.message || '가져오기 실패'}</div>`;
+        }
+      });
+    }
     document.getElementById('edit-save').addEventListener('click', () => {
       const newCurrent = parseInt(document.getElementById('e-current').value, 10) || 0;
       const newTarget = parseInt(document.getElementById('e-target').value, 10) || newCurrent;
@@ -674,11 +919,20 @@ const App = {
         alert('브랜드, 상품명, 현재가는 필수입니다.');
         return;
       }
-      // 가격이 바뀌면 가격 히스토리에 추가
-      const history = Array.isArray(product.priceHistory) ? [...product.priceHistory] : [];
-      const lastPrice = history.length ? history[history.length - 1].price : null;
-      if (lastPrice !== newCurrent) {
-        history.push({ id: uuid(), date: new Date().toISOString(), price: newCurrent });
+      // 크림에서 새로 가져온 이력이 있으면 교체, 아니면 기존 이력에 변경가 추가
+      let history;
+      if (refreshedHistory && refreshedHistory.length >= 2) {
+        history = refreshedHistory.slice();
+        const last = history[history.length - 1];
+        if (!last || last.price !== newCurrent) {
+          history.push({ id: uuid(), date: new Date().toISOString(), price: newCurrent });
+        }
+      } else {
+        history = Array.isArray(product.priceHistory) ? [...product.priceHistory] : [];
+        const lastPrice = history.length ? history[history.length - 1].price : null;
+        if (lastPrice !== newCurrent) {
+          history.push({ id: uuid(), date: new Date().toISOString(), price: newCurrent });
+        }
       }
       const updated = {
         ...product,
@@ -759,7 +1013,28 @@ const App = {
     if (!size) return 0;
     const sizeStr = String(size).trim();
     const escaped = sizeStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // 패턴 1: "270 ... 123,000원" (사이즈와 가격이 한 줄 또는 인접)
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    // 1) 같은 라인에 사이즈와 가격이 함께 있는 경우 (Kream 사이즈별 표)
+    const sizeOnLine = new RegExp(`(?:^|\\s|\\|)${escaped}(?:\\s|$|[^0-9])`);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!sizeOnLine.test(line)) continue;
+      const priceMatch = line.match(/(\d{1,3}(?:,\d{3})+|\d{5,8})/);
+      if (priceMatch) {
+        const val = parseInt(priceMatch[1].replace(/,/g, ''), 10);
+        if (val >= 10000 && val <= 100000000) return val;
+      }
+      // 2) 바로 다음 라인에 가격만 있는 경우
+      const next = lines[i + 1];
+      if (next) {
+        const pm = next.match(/^(\d{1,3}(?:,\d{3})+|\d{5,8})/);
+        if (pm) {
+          const val = parseInt(pm[1].replace(/,/g, ''), 10);
+          if (val >= 10000 && val <= 100000000) return val;
+        }
+      }
+    }
+    // 3) 기존 full-text 패턴
     const patterns = [
       new RegExp(`${escaped}\\s*[^\\d]{0,10}(\\d{1,3}(?:,\\d{3})+)`, 'i'),
       new RegExp(`(\\d{1,3}(?:,\\d{3})+)\\s*[^\\d]{0,10}${escaped}`, 'i'),
@@ -774,28 +1049,80 @@ const App = {
     }
     return 0;
   },
+  // 알려진 브랜드 사전 (key: 소문자/한글, value: 정규화된 표기)
+  KNOWN_BRANDS: {
+    'nike': 'Nike', '나이키': 'Nike',
+    'jordan': 'Jordan', 'air jordan': 'Jordan', '조던': 'Jordan',
+    'adidas': 'adidas', '아디다스': 'adidas', 'yeezy': 'adidas',
+    'new balance': 'New Balance', '뉴발란스': 'New Balance',
+    'asics': 'Asics', '아식스': 'Asics',
+    'puma': 'Puma', '푸마': 'Puma',
+    'converse': 'Converse', '컨버스': 'Converse',
+    'reebok': 'Reebok', '리복': 'Reebok',
+    'vans': 'Vans', '반스': 'Vans',
+    'on running': 'On', 'hoka': 'Hoka', '호카': 'Hoka',
+    'salomon': 'Salomon', '살로몬': 'Salomon',
+    'stussy': 'Stussy', '스투시': 'Stussy',
+    'supreme': 'Supreme', '슈프림': 'Supreme',
+    'palace': 'Palace', '팔라스': 'Palace',
+    'carhartt': 'Carhartt', '칼하트': 'Carhartt',
+    'the north face': 'The North Face', '노스페이스': 'The North Face',
+    'patagonia': 'Patagonia', '파타고니아': 'Patagonia',
+    'arcteryx': 'Arcteryx', "arc'teryx": 'Arcteryx', '아크테릭스': 'Arcteryx',
+    'gucci': 'Gucci', '구찌': 'Gucci',
+    'prada': 'Prada', '프라다': 'Prada',
+    'louis vuitton': 'Louis Vuitton', '루이비통': 'Louis Vuitton',
+    'chanel': 'Chanel', '샤넬': 'Chanel',
+    'balenciaga': 'Balenciaga', '발렌시아가': 'Balenciaga',
+    'dior': 'Dior', '디올': 'Dior',
+    'celine': 'Celine', '셀린느': 'Celine',
+    'hermes': 'Hermes', '에르메스': 'Hermes',
+    'loewe': 'Loewe', '로에베': 'Loewe',
+    'maison margiela': 'Maison Margiela', '마르지엘라': 'Maison Margiela',
+    'ami': 'AMI', '아미': 'AMI',
+    'thisisneverthat': 'Thisisneverthat', '디스이즈네버댓': 'Thisisneverthat',
+    'polo': 'Polo Ralph Lauren', 'ralph lauren': 'Polo Ralph Lauren', '폴로': 'Polo Ralph Lauren',
+    'tommy hilfiger': 'Tommy Hilfiger', '타미힐피거': 'Tommy Hilfiger',
+    'lacoste': 'Lacoste', '라코스테': 'Lacoste',
+    'champion': 'Champion', '챔피언': 'Champion',
+    'kappa': 'Kappa', '카파': 'Kappa',
+    'fila': 'Fila', '휠라': 'Fila',
+    'mlb': 'MLB', '엠엘비': 'MLB',
+    'covernat': 'Covernat', '커버낫': 'Covernat',
+    'mahagrid': 'Mahagrid', '마하그리드': 'Mahagrid',
+    'kirsh': 'Kirsh', '키르시': 'Kirsh',
+    'anderssonbell': 'Andersson Bell', '앤더슨벨': 'Andersson Bell',
+    'adererror': 'Ader Error', '아더에러': 'Ader Error'
+  },
   parseKreamScreenshot(text) {
     const result = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };
 
     // 1. 상태 표시줄 및 불필요한 텍스트 필터링
     const noiseRe = [
-      /^\d{1,2}:\d{2}/,      // 시간 (03:17)
-      /^\d{1,3}%$/,           // 배터리 퍼센트
-      /^[·•\-_]+$/,           // 특수문자만
-      /github\.io/i,          // URL
-      /https?:/i,             // URL
-      /^[a-z]{1,2}$/i,        // 한두 글자만
-      /^\d+$/,                // 숫자만
-      /취소|저장|상품|추가|스크린샷|인식/,  // UI 텍스트
-      /^[^\w가-힣]+$/         // 문자 없음
+      /^\d{1,2}:\d{2}/,       // 시간 (03:17)
+      /^\d{1,3}%$/,            // 배터리 퍼센트
+      /^[·•\-_]+$/,            // 특수문자만
+      /github\.io/i,           // URL
+      /https?:/i,              // URL
+      /^[a-z]{1,2}$/i,         // 한두 글자만
+      /^\d+$/,                 // 숫자만
+      /^(취소|저장|확인|닫기|공유|더보기)$/,  // UI 버튼
+      /스크린샷|인식/,          // 자체 UI 텍스트
+      /^[^\w가-힣]+$/          // 문자 없음
     ];
-    const lines = text.split('\n')
-      .map(l => l.trim())
+    const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = rawLines
       .filter(l => l.length >= 2)
       .filter(l => !noiseRe.some(re => re.test(l)));
 
-    // 2. 가격 추출: "발매가 XXX,XXX원" 키워드 우선
-    const retailKeywords = [/발매가\s*([\d,]+)\s*원?/, /정가\s*([\d,]+)\s*원?/];
+    // 2. 정가(발매가) 키워드
+    const retailKeywords = [
+      /발매\s*가격?\s*[:\s]*([\d,]+)/,
+      /정가\s*[:\s]*([\d,]+)/,
+      /출시\s*가격?\s*[:\s]*([\d,]+)/,
+      /retail\s*price\s*[:\s]*([\d,]+)/i,
+      /msrp\s*[:\s]*([\d,]+)/i
+    ];
     for (const re of retailKeywords) {
       const m = text.match(re);
       if (m) {
@@ -804,8 +1131,14 @@ const App = {
       }
     }
 
-    // 3. "즉시 구매가" 또는 "구매가" 키워드
-    const currentKeywords = [/즉시\s*구매가\s*([\d,]+)/, /구매가\s*([\d,]+)/];
+    // 3. 현재가(즉시구매가) 키워드
+    const currentKeywords = [
+      /즉시\s*구매\s*가격?\s*[:\s]*([\d,]+)/,
+      /즉시\s*구매\s*[:\s]*([\d,]+)/,
+      /구매\s*가격?\s*[:\s]*([\d,]+)/,
+      /최근\s*거래\s*가격?\s*[:\s]*([\d,]+)/,
+      /판매\s*[:\s]*([\d,]+)/
+    ];
     for (const re of currentKeywords) {
       const m = text.match(re);
       if (m) {
@@ -814,8 +1147,8 @@ const App = {
       }
     }
 
-    // 4. 모든 가격 추출 (콤마 있는 숫자 패턴)
-    const priceRegex = /(\d{1,3}(?:,\d{3})+)/g;
+    // 4. 모든 가격 수집 (콤마 있는 숫자 + 2~4자리 천단위 없는 만단위 숫자)
+    const priceRegex = /(\d{1,3}(?:,\d{3})+|\d{5,8})/g;
     const allPrices = [];
     let m;
     while ((m = priceRegex.exec(text)) !== null) {
@@ -824,77 +1157,104 @@ const App = {
     }
     const uniquePrices = [...new Set(allPrices)].sort((a, b) => a - b);
 
-    // 현재가가 없으면 가장 많이 등장하는 가격 또는 첫 번째 가격
+    // 5. 현재가 fallback: 키워드 미매칭 시
     if (result.currentPrice === 0 && uniquePrices.length > 0) {
       const counts = {};
       allPrices.forEach(p => counts[p] = (counts[p] || 0) + 1);
+      // 정가와 다른 값 중 가장 자주 등장
       const mostCommon = Object.keys(counts)
-        .filter(k => parseInt(k) !== result.retailPrice)
+        .map(k => parseInt(k, 10))
+        .filter(k => k !== result.retailPrice)
         .sort((a, b) => counts[b] - counts[a])[0];
-      result.currentPrice = mostCommon ? parseInt(mostCommon) : uniquePrices[uniquePrices.length - 1];
+      result.currentPrice = mostCommon || uniquePrices[uniquePrices.length - 1];
     }
 
-    // 정가가 없으면 가장 작은 가격 (보통 발매가가 가장 낮음)
+    // 정가 fallback: 최저 가격 (가장 가능성 높음)
     if (result.retailPrice === 0 && uniquePrices.length >= 2) {
       result.retailPrice = uniquePrices[0];
     }
 
-    // 5. 브랜드 및 상품명 추출
-    // 알려진 브랜드 목록
-    const knownBrands = {
-      'stussy': 'Stussy', '스투시': 'Stussy',
-      'nike': 'Nike', '나이키': 'Nike',
-      'adidas': 'adidas', '아디다스': 'adidas',
-      'new balance': 'New Balance', '뉴발란스': 'New Balance',
-      'jordan': 'Jordan', '조던': 'Jordan',
-      'supreme': 'Supreme', '슈프림': 'Supreme',
-      'the north face': 'The North Face', '노스페이스': 'The North Face',
-      'palace': 'Palace', '팔라스': 'Palace',
-      'carhartt': 'Carhartt', '칼하트': 'Carhartt',
-      'converse': 'Converse', '컨버스': 'Converse',
-      'puma': 'Puma', '푸마': 'Puma',
-      'asics': 'Asics', '아식스': 'Asics',
-      'reebok': 'Reebok', '리복': 'Reebok',
-      'vans': 'Vans', '반스': 'Vans'
-    };
+    // 6. 브랜드 탐지 (긴 키워드를 먼저 매칭)
     const lowerText = text.toLowerCase();
-    for (const [key, value] of Object.entries(knownBrands)) {
+    const brandKeys = Object.keys(this.KNOWN_BRANDS).sort((a, b) => b.length - a.length);
+    for (const key of brandKeys) {
       if (lowerText.includes(key)) {
-        result.brand = value;
+        result.brand = this.KNOWN_BRANDS[key];
         break;
       }
     }
 
-    // 6. 상품명: 영문 상품명 패턴 (대문자로 시작하는 여러 단어)
-    const englishNameMatch = text.match(/[A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]*){1,6}/);
-    if (englishNameMatch) {
-      result.name = englishNameMatch[0].trim();
-    }
+    // 7. 상품명 추출 — 여러 전략 시도 후 가장 좋은 것 채택
+    const candidates = [];
 
-    // 7. 영문 상품명 없으면 한글 상품명 시도 (브랜드 뒤의 긴 문장)
-    if (!result.name) {
-      for (const line of lines.slice(0, 10)) {
-        // 3자 이상, 50자 이하, 가격/숫자/UI 텍스트 아닌 것
-        if (line.length >= 5 && line.length <= 80 &&
-            !line.match(/원|₩|\$|%/) &&
-            !line.match(/발매가|구매가|거래|리뷰|트렌딩/)) {
-          result.name = line;
-          break;
+    // (a) 영문 상품명: 대문자 단어 2~6개 시퀀스
+    const engMatches = text.match(/[A-Z][a-zA-Z0-9'’]{1,}(?:\s+[A-Z0-9][a-zA-Z0-9'’]*){1,6}/g) || [];
+    engMatches.forEach(s => {
+      const trimmed = s.trim();
+      if (trimmed.length >= 5 && trimmed.length <= 80 && !/KREAM|Kream/i.test(trimmed)) {
+        candidates.push({ text: trimmed, score: trimmed.length + 5, type: 'eng' });
+      }
+    });
+
+    // (b) 한글 상품명: 가격/키워드 없고 길이 적당한 라인
+    const excludeKW = /원$|₩|발매가|구매가|정가|거래|리뷰|트렌딩|사이즈|배송|검수|결제|관심|저장|목표|키워드|스크랩|관련|해시태그|북마크/;
+    lines.slice(0, 15).forEach((line, idx) => {
+      if (line.length < 4 || line.length > 80) return;
+      if (excludeKW.test(line)) return;
+      if (/\d{3,}/.test(line) && !/^[A-Za-z]/.test(line)) return; // 숫자 위주 라인 제외(영문명 시작은 허용)
+      // 라인 내 영문 상품명 패턴 추가 점수
+      const hasEng = /[A-Z][a-z]/.test(line);
+      const score = line.length + (hasEng ? 8 : 0) - idx; // 위쪽 라인 우선
+      candidates.push({ text: line, score, type: 'line' });
+    });
+
+    // 브랜드 라인 바로 다음 라인을 강력 후보로 (Kream 페이지 패턴)
+    if (result.brand) {
+      const brandLower = result.brand.toLowerCase();
+      for (let i = 0; i < lines.length - 1; i++) {
+        if (lines[i].toLowerCase().includes(brandLower)) {
+          const next = lines[i + 1];
+          if (next && next.length >= 4 && next.length <= 80 && !excludeKW.test(next)) {
+            candidates.push({ text: next, score: next.length + 20, type: 'below-brand' });
+          }
+          // 같은 라인에 브랜드+상품명이 함께 있는 경우
+          const afterBrand = lines[i].replace(new RegExp(result.brand, 'i'), '').trim();
+          if (afterBrand && afterBrand.length >= 4 && !excludeKW.test(afterBrand)) {
+            candidates.push({ text: afterBrand, score: afterBrand.length + 15, type: 'same-line' });
+          }
         }
       }
     }
 
-    // 8. 브랜드 없으면 상품명에서 첫 단어 추출
+    if (candidates.length) {
+      candidates.sort((a, b) => b.score - a.score);
+      result.name = candidates[0].text.replace(/\s+/g, ' ').trim();
+    }
+
+    // 8. 브랜드 없으면 상품명 첫 단어 시도
     if (!result.brand && result.name) {
       const firstWord = result.name.split(/\s+/)[0];
-      if (firstWord && firstWord.length >= 2) result.brand = firstWord;
+      if (firstWord && firstWord.length >= 2 && /[A-Za-z가-힣]/.test(firstWord)) {
+        result.brand = firstWord;
+      }
+    }
+
+    // 상품명이 브랜드로 시작하면 중복 제거
+    if (result.brand && result.name) {
+      const bLower = result.brand.toLowerCase();
+      const nLower = result.name.toLowerCase();
+      if (nLower.startsWith(bLower + ' ')) {
+        result.name = result.name.slice(result.brand.length).trim();
+      }
     }
 
     // 9. 사이즈 추출
     const sizePatterns = [
-      /사이즈[:\s]*(\d+\.?\d*)/,
-      /Size[:\s]*(\d+\.?\d*)/i,
-      /옵션[:\s]*(\d+)/
+      /사이즈\s*[:\s]*([0-9]+(?:\.[05])?)/,
+      /size\s*[:\s]*([0-9]+(?:\.[05])?)/i,
+      /옵션\s*[:\s]*([0-9]+)/,
+      /\b([0-9]{3})\s*mm\b/i,
+      /\bUS\s*([0-9]+(?:\.[05])?)/i
     ];
     for (const pattern of sizePatterns) {
       const match = text.match(pattern);

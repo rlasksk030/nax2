@@ -575,6 +575,32 @@ button:disabled {
   margin-top: 12px;
 }
 
+.refresh-history-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px;
+  border-radius: 10px;
+  border: 1px solid var(--separator);
+  background: var(--tertiary-background);
+  color: var(--label);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.refresh-history-btn:active {
+  opacity: 0.7;
+}
+
+.refresh-history-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .kream-link-container {
   display: flex;
   justify-content: flex-end;
