@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.7.3'; // Real Kream price history + improved OCR
+const APP_VERSION = '1.7.4'; // OCR+: digit correction, screenshot guide, compare images
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -616,7 +616,10 @@ const App = {
       const pct = p.retailPrice > 0 ? (diff / p.retailPrice * 100).toFixed(1) : '0.0';
       const diffClass = diff > 0 ? 'diff-positive' : 'diff-negative';
       const kreamBtn = p.kreamURL ? `<div class="kream-link-container"><a class="kream-link-btn" href="${escapeAttr(p.kreamURL)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l10-10M17 7v10H7"/></svg> 크림에서 보기</a></div>` : '';
-      return `<div class="compare-row"><div class="brand-text">${escapeHTML(p.brand)}</div><div class="name-text">${escapeHTML(p.name)}</div><div class="info-row"><span class="label">현재가</span><span class="value">${fmtNumber(p.currentPrice)}원</span></div><div class="info-row"><span class="label">정가</span><span class="value" style="color: var(--secondary-label)">${fmtNumber(p.retailPrice)}원</span></div><div class="info-row"><span class="label">차액</span><span class="value ${diffClass}">${fmtNumber(diff)}원 (${pct}%)</span></div>${kreamBtn}</div>`;
+      const imgBlock = p.imageURL
+        ? `<div class="compare-image"><img src="${escapeAttr(p.imageURL)}" alt="${escapeAttr(p.name)}" loading="lazy"></div>`
+        : `<div class="compare-image compare-image-empty"><span>사진 없음</span></div>`;
+      return `<div class="compare-row">${imgBlock}<div class="compare-body"><div class="brand-text">${escapeHTML(p.brand)}</div><div class="name-text">${escapeHTML(p.name)}</div><div class="info-row"><span class="label">현재가</span><span class="value">${fmtNumber(p.currentPrice)}원</span></div><div class="info-row"><span class="label">정가</span><span class="value" style="color: var(--secondary-label)">${fmtNumber(p.retailPrice)}원</span></div><div class="info-row"><span class="label">차액</span><span class="value ${diffClass}">${fmtNumber(diff)}원 (${pct}%)</span></div>${kreamBtn}</div></div>`;
     }).join('');
   },
   renderSettings() {
@@ -717,7 +720,7 @@ const App = {
   openAddModal() {
     const modal = document.getElementById('modal-content');
     const defaultSize = SettingsStore.shoeSize || '';
-    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">스크린샷 인식 (최대 3장)</div><div class="form-group"><label for="p-image" style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--separator);border-radius:8px;cursor:pointer;background:var(--tertiary-background)"><span style="font-size:18px">📸</span><span>Kream 캡처 이미지 선택 (최대 3장)</span></label><input type="file" id="p-image" accept="image/*" multiple style="display:none"></div><div id="image-preview-grid" class="image-preview-grid"></div><div id="image-status"></div><div class="form-footer">여러 장의 스크린샷을 한 번에 선택하면 종합해서 정보를 자동 입력합니다. 첨부 후 사진을 보고 아래 입력란을 직접 수정할 수 있습니다.</div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(defaultSize)}"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">스크린샷 인식 (최대 3장)</div><button class="guide-toggle" id="guide-toggle" type="button"><span>어떤 사진을 찍어야 하나요?</span><span class="guide-chevron">▾</span></button><div class="screenshot-guide hidden" id="screenshot-guide"><div class="form-footer" style="margin-bottom:10px">아래 3가지 장면을 함께 첨부하면 정확도가 크게 올라갑니다.</div><div class="guide-item"><div class="guide-mock mock-detail"><div class="mock-bar"></div><div class="mock-img"></div><div class="mock-line w60"></div><div class="mock-line w80"></div><div class="mock-price">₩ 158,000</div><div class="mock-sub">발매가 139,000원</div></div><div class="guide-desc"><div class="guide-title">① 상품 상세 페이지</div><div class="guide-body">브랜드, 상품명, <b>즉시 구매가</b>, <b>발매가</b>가 한 화면에 보이도록 캡처하세요.</div></div></div><div class="guide-item"><div class="guide-mock mock-size"><div class="mock-bar"></div><div class="mock-sizerow"><span>250</span><b>152,000</b></div><div class="mock-sizerow highlight"><span>270</span><b>158,000</b></div><div class="mock-sizerow"><span>275</span><b>160,000</b></div><div class="mock-sizerow"><span>280</span><b>163,000</b></div></div><div class="guide-desc"><div class="guide-title">② 사이즈별 시세</div><div class="guide-body">"<b>사이즈별 시세</b>" 탭을 열고 내 사이즈가 포함된 표를 캡처하면 정확한 가격 매칭.</div></div></div><div class="guide-item"><div class="guide-mock mock-history"><div class="mock-bar"></div><div class="mock-chart"><svg viewBox="0 0 120 40" preserveAspectRatio="none"><polyline points="0,30 20,22 40,28 60,15 80,20 100,10 120,14" fill="none" stroke="#007AFF" stroke-width="2"/></svg></div><div class="mock-histrow"><span>24/10/05</span><b>158,000</b></div><div class="mock-histrow"><span>24/10/03</span><b>160,000</b></div></div><div class="guide-desc"><div class="guide-title">③ 체결 내역 / 시세 그래프</div><div class="guide-body">"<b>체결 내역</b>" 또는 "시세" 그래프를 캡처하면 가격 변동 이력까지 자동 반영.</div></div></div></div><div class="form-group"><label for="p-image" class="image-upload-label"><span style="font-size:18px">📸</span><span>Kream 캡처 이미지 선택 (최대 3장)</span></label><input type="file" id="p-image" accept="image/*" multiple style="display:none"></div><div id="image-preview-grid" class="image-preview-grid"></div><div id="image-status"></div><div class="form-footer">여러 장을 한 번에 선택하면 종합해서 정보를 자동 입력합니다. 첨부 후 사진을 보고 아래 입력란을 직접 수정할 수 있습니다.</div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(defaultSize)}"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
     document.getElementById('modal-backdrop').classList.remove('hidden');
     const saveBtn = document.getElementById('add-save');
     const updateCanSave = () => {
@@ -728,9 +731,19 @@ const App = {
     };
     ['p-brand', 'p-name', 'p-current'].forEach(id => document.getElementById(id).addEventListener('input', updateCanSave));
     document.getElementById('add-cancel').addEventListener('click', () => this.closeModal());
+    const guideToggle = document.getElementById('guide-toggle');
+    const guideBody = document.getElementById('screenshot-guide');
+    if (guideToggle && guideBody) {
+      guideToggle.addEventListener('click', () => {
+        guideBody.classList.toggle('hidden');
+        guideToggle.classList.toggle('open', !guideBody.classList.contains('hidden'));
+      });
+    }
     const imageInput = document.getElementById('p-image');
     const imageStatus = document.getElementById('image-status');
     const previewGrid = document.getElementById('image-preview-grid');
+    let capturedImageDataURL = '';
+    let ocrPriceHistory = [];
     const renderPreviews = (files) => {
       previewGrid.innerHTML = '';
       Array.from(files).slice(0, 3).forEach((file, idx) => {
@@ -751,10 +764,19 @@ const App = {
     const recognizeImages = async (files) => {
       if (!files || files.length === 0) {
         previewGrid.innerHTML = '';
+        capturedImageDataURL = '';
+        ocrPriceHistory = [];
         return;
       }
       renderPreviews(files);
       const list = Array.from(files).slice(0, 3); // 최대 3장
+      // 첫 번째 사진을 상품 썸네일로 저장 (400px webp/jpeg)
+      try {
+        capturedImageDataURL = await this.imageFileToThumbDataURL(list[0]);
+      } catch (e) {
+        console.warn('[image] 썸네일 생성 실패', e);
+        capturedImageDataURL = '';
+      }
       const total = list.length;
       const parsed = [];
       const fullText = [];
@@ -787,6 +809,10 @@ const App = {
       if (merged.currentPrice > 0) { document.getElementById('p-current').value = merged.currentPrice; filled.push('현재가'); }
       if (merged.retailPrice > 0) { document.getElementById('p-retail').value = merged.retailPrice; filled.push('정가'); }
       if (merged.size) { document.getElementById('p-size').value = merged.size; filled.push('사이즈'); }
+      if (Array.isArray(merged.priceHistory) && merged.priceHistory.length >= 2) {
+        ocrPriceHistory = merged.priceHistory;
+        filled.push(`체결내역 ${merged.priceHistory.length}건`);
+      }
       const statusMsg = filled.length ? `✓ ${total}장 인식됨: ${filled.join(', ')}` : '⚠ 일부 정보를 찾지 못했습니다.';
       imageStatus.innerHTML = `<div class="${filled.length ? 'status-success' : 'status-error'}">${statusMsg}<br><span style="font-size:0.85em;opacity:0.7">정확하지 않으면 직접 수정하세요</span></div>`;
       updateCanSave();
@@ -851,11 +877,13 @@ const App = {
       const current = parseInt(document.getElementById('p-current').value, 10) || 0;
       const target = parseInt(document.getElementById('p-target').value, 10) || current;
       const retail = parseInt(document.getElementById('p-retail').value, 10) || current;
-      // 실제 가져온 가격 변동이 있으면 사용하고, 없으면 추정 베이스라인 사용
+      // 실제 가져온 가격 변동이 있으면 사용하고, 없으면 OCR 체결내역 → 추정 베이스라인
       let history;
-      if (fetchedHistory && fetchedHistory.length >= 2) {
-        history = fetchedHistory.slice();
-        // 마지막 항목이 현재가와 다르면 최신 엔트리 추가
+      const realHistory = (fetchedHistory && fetchedHistory.length >= 2)
+        ? fetchedHistory
+        : (ocrPriceHistory && ocrPriceHistory.length >= 2 ? ocrPriceHistory : null);
+      if (realHistory) {
+        history = realHistory.slice();
         const last = history[history.length - 1];
         if (!last || last.price !== current) {
           history.push({ id: uuid(), date: new Date().toISOString(), price: current });
@@ -868,6 +896,7 @@ const App = {
         brand: document.getElementById('p-brand').value.trim(),
         size: document.getElementById('p-size').value.trim(),
         kreamURL: urlInput.value.trim(),
+        imageURL: capturedImageDataURL || '',
         currentPrice: current,
         targetPrice: target,
         retailPrice: retail,
@@ -974,9 +1003,34 @@ const App = {
       img.src = URL.createObjectURL(file);
     });
   },
+  // 상품 썸네일용: 폭 500px 이하 JPEG 데이터 URL로 변환 (localStorage 용량 절약)
+  async imageFileToThumbDataURL(file, maxWidth = 500) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        try {
+          const scale = Math.min(1, maxWidth / img.width);
+          const w = Math.floor(img.width * scale);
+          const h = Math.floor(img.height * scale);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        } catch (e) { reject(e); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')); };
+      img.src = url;
+    });
+  },
   mergeOCRResults(parsedList, combinedText, mySize) {
     // 여러 캡처 결과를 종합 (필드별로 가장 신뢰도 높은 값 채택)
-    const merged = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };
+    const merged = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '', priceHistory: [] };
     // brand: 가장 많이 등장한 값
     const brandCounts = {};
     parsedList.forEach(p => { if (p.brand) brandCounts[p.brand] = (brandCounts[p.brand] || 0) + 1; });
@@ -1006,6 +1060,21 @@ const App = {
       allCurrent.forEach(p => counts[p] = (counts[p] || 0) + 1);
       merged.currentPrice = parseInt(Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0], 10) || 0;
     }
+    // 체결 내역(가격 변동 이력) 병합
+    const mergedHistory = [];
+    const seenKeys = new Set();
+    parsedList.forEach(p => {
+      if (Array.isArray(p.priceHistory)) {
+        p.priceHistory.forEach(e => {
+          const key = e.date.slice(0, 10) + ':' + e.price;
+          if (seenKeys.has(key)) return;
+          seenKeys.add(key);
+          mergedHistory.push({ id: uuid(), date: e.date, price: e.price });
+        });
+      }
+    });
+    mergedHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+    merged.priceHistory = mergedHistory;
     return merged;
   },
   findPriceForSize(text, size) {
@@ -1094,21 +1163,32 @@ const App = {
     'anderssonbell': 'Andersson Bell', '앤더슨벨': 'Andersson Bell',
     'adererror': 'Ader Error', '아더에러': 'Ader Error'
   },
+  // OCR이 혼동하기 쉬운 숫자 글자 보정 (가격 문맥에 한정 적용)
+  correctOCRDigits(s) {
+    if (!s) return s;
+    return s
+      .replace(/[Oo]/g, '0')
+      .replace(/[lI|]/g, '1')
+      .replace(/[Ss]/g, '5')
+      .replace(/B(?=[\d,])/g, '8')
+      .replace(/(?<=\d)[gq]/g, '9');
+  },
   parseKreamScreenshot(text) {
-    const result = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };
+    const result = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '', priceHistory: [] };
 
     // 1. 상태 표시줄 및 불필요한 텍스트 필터링
     const noiseRe = [
-      /^\d{1,2}:\d{2}/,       // 시간 (03:17)
-      /^\d{1,3}%$/,            // 배터리 퍼센트
-      /^[·•\-_]+$/,            // 특수문자만
-      /github\.io/i,           // URL
-      /https?:/i,              // URL
-      /^[a-z]{1,2}$/i,         // 한두 글자만
-      /^\d+$/,                 // 숫자만
-      /^(취소|저장|확인|닫기|공유|더보기)$/,  // UI 버튼
-      /스크린샷|인식/,          // 자체 UI 텍스트
-      /^[^\w가-힣]+$/          // 문자 없음
+      /^\d{1,2}:\d{2}/,        // 시간 (03:17)
+      /^\d{1,3}%$/,             // 배터리 퍼센트
+      /^[·•\-_]+$/,             // 특수문자만
+      /github\.io/i,            // URL
+      /https?:/i,               // URL
+      /^[a-z]{1,2}$/i,          // 한두 글자만
+      /^\d+$/,                  // 숫자만
+      /^(취소|저장|확인|닫기|공유|더보기|알림|검색|홈|장바구니|판매|구매|입찰)$/,
+      /스크린샷|인식/,           // 자체 UI 텍스트
+      /^(위시|관심|북마크|스타일|리뷰)$/,
+      /^[^\w가-힣]+$/           // 문자 없음
     ];
     const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
     const lines = rawLines
@@ -1147,13 +1227,20 @@ const App = {
       }
     }
 
-    // 4. 모든 가격 수집 (콤마 있는 숫자 + 2~4자리 천단위 없는 만단위 숫자)
+    // 4. 모든 가격 수집 (콤마 있는 숫자 + 2~4자리 천단위 없는 만단위 숫자 + 만원 표기)
     const priceRegex = /(\d{1,3}(?:,\d{3})+|\d{5,8})/g;
     const allPrices = [];
     let m;
     while ((m = priceRegex.exec(text)) !== null) {
       const val = parseInt(m[1].replace(/,/g, ''), 10);
       if (val >= 10000 && val <= 100000000) allPrices.push(val);
+    }
+    // "XX만원" / "XX.X만" 표기도 수집
+    const manwonRe = /(\d+(?:\.\d)?)\s*만\s*원?/g;
+    let mw;
+    while ((mw = manwonRe.exec(text)) !== null) {
+      const v = Math.round(parseFloat(mw[1]) * 10000);
+      if (v >= 10000 && v <= 100000000) allPrices.push(v);
     }
     const uniquePrices = [...new Set(allPrices)].sort((a, b) => a - b);
 
@@ -1261,7 +1348,50 @@ const App = {
       if (match) { result.size = match[1]; break; }
     }
 
+    // 10. 체결 내역(거래 이력) 추출 — 가격 변동 그래프 데이터로 활용
+    // 예: "24/10/05 270 158,000" 또는 "2024.10.05 270  158,000"
+    const historyEntries = [];
+    for (const line of rawLines) {
+      // (a) YY/MM/DD 또는 YYYY.MM.DD 패턴 + 가격
+      const dateMatch = line.match(/(\d{2,4}[./\-]\s?\d{1,2}[./\-]\s?\d{1,2})/);
+      if (!dateMatch) continue;
+      const priceInLine = line.match(/(\d{1,3}(?:,\d{3})+|\d{5,8})/);
+      if (!priceInLine) continue;
+      const val = parseInt(priceInLine[1].replace(/,/g, ''), 10);
+      if (val < 10000 || val > 100000000) continue;
+      const dateStr = dateMatch[1].replace(/\s/g, '');
+      const iso = this.parseRelativeKoreanDate(dateStr);
+      if (iso) historyEntries.push({ date: iso, price: val });
+    }
+    if (historyEntries.length >= 2) {
+      // 중복 제거 + 시간순 정렬
+      const seen = new Set();
+      const sorted = historyEntries
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .filter(e => {
+          const k = e.date.slice(0, 10) + ':' + e.price;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        })
+        .map(e => ({ id: uuid(), date: e.date, price: e.price }));
+      result.priceHistory = sorted;
+    }
+
     return result;
+  },
+  // YY/MM/DD, YYYY.MM.DD 등 다양한 한국식 날짜 포맷 파싱
+  parseRelativeKoreanDate(s) {
+    if (!s) return null;
+    const m = s.match(/^(\d{2,4})[./\-](\d{1,2})[./\-](\d{1,2})$/);
+    if (!m) return null;
+    let year = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10);
+    const day = parseInt(m[3], 10);
+    if (year < 100) year += 2000;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const d = new Date(year, month - 1, day);
+    return isNaN(d) ? null : d.toISOString();
   },
   closeModal() {
     document.getElementById('modal-backdrop').classList.add('hidden');

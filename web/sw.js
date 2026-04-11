@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kream-price-v11';
+const CACHE_NAME = 'kream-price-v12';
 const URLS_TO_CACHE = [
   './',
   './index.html',
