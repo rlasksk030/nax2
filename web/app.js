@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.6.0'; // Network-first SW + auto-update on new version
+const APP_VERSION = '1.7.0'; // Edit/multi-OCR/personal sizes/weekly history
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -68,15 +68,25 @@ const SettingsStore = {
   monthlyBudget: 0,
   notificationsEnabled: true,
   notificationCooldownHours: 6,
+  shoeSize: '',
+  clothingSize: '',
   listeners: [],
   init() {
     const s = loadJSON(STORAGE_KEYS.settings, {});
     this.monthlyBudget = s.monthlyBudget ?? 0;
     this.notificationsEnabled = s.notificationsEnabled ?? true;
     this.notificationCooldownHours = Math.max(1, Math.min(72, s.notificationCooldownHours ?? 6));
+    this.shoeSize = s.shoeSize ?? '';
+    this.clothingSize = s.clothingSize ?? '';
   },
   save() {
-    saveJSON(STORAGE_KEYS.settings, { monthlyBudget: this.monthlyBudget, notificationsEnabled: this.notificationsEnabled, notificationCooldownHours: this.notificationCooldownHours });
+    saveJSON(STORAGE_KEYS.settings, {
+      monthlyBudget: this.monthlyBudget,
+      notificationsEnabled: this.notificationsEnabled,
+      notificationCooldownHours: this.notificationCooldownHours,
+      shoeSize: this.shoeSize,
+      clothingSize: this.clothingSize
+    });
     this.listeners.forEach(fn => fn());
   },
   subscribe(fn) { this.listeners.push(fn); return () => { this.listeners = this.listeners.filter(l => l !== fn); }; }
@@ -290,6 +300,10 @@ const App = {
   render() {
     const main = document.getElementById('main-content');
     const title = document.getElementById('nav-title');
+    // 포커스/커서 위치 보존 (재렌더 시 입력 끊김 방지)
+    const ae = document.activeElement;
+    const activeId = ae && ae.id ? ae.id : null;
+    const cursorPos = activeId && ae.selectionStart != null ? ae.selectionStart : null;
     switch (this.currentTab) {
       case 'wishlist':
         title.textContent = '위시리스트';
@@ -306,6 +320,15 @@ const App = {
         this.bindSettingsEvents();
         break;
     }
+    if (activeId) {
+      const el = document.getElementById(activeId);
+      if (el && typeof el.focus === 'function') {
+        el.focus();
+        if (cursorPos != null && typeof el.setSelectionRange === 'function') {
+          try { el.setSelectionRange(cursorPos, cursorPos); } catch {}
+        }
+      }
+    }
   },
   renderWishlist() {
     const products = this.wishlistFilter ? ProductStore.products.filter(p => p.currentPrice < p.retailPrice) : ProductStore.products;
@@ -316,7 +339,8 @@ const App = {
     }
     products.forEach(p => {
       const cheaper = p.currentPrice < p.retailPrice;
-      html += `<div class="wishlist-row" data-id="${p.id}"><button class="delete-btn" data-delete="${p.id}">삭제</button><div class="row-header"><div>${escapeHTML(p.brand)}</div><div>사이즈 ${escapeHTML(p.size)}</div></div><div class="name">${escapeHTML(p.name)}</div><div class="price-line"><span class="price">${fmtNumber(p.currentPrice)}원</span><span class="target">목표 ${fmtNumber(p.targetPrice)}원</span></div>${cheaper ? `<div class="cheap-badge">↓ 정가 대비 ${fmtNumber(p.retailPrice - p.currentPrice)}원 저렴</div>` : ''}</div>`;
+      const sizeLabel = p.size ? `사이즈 ${escapeHTML(p.size)}` : '';
+      html += `<div class="wishlist-row" data-id="${p.id}"><div class="row-actions"><button class="row-btn edit-btn" data-edit="${p.id}">수정</button><button class="row-btn delete-btn" data-delete="${p.id}">삭제</button></div><div class="row-header"><div class="brand-line">${escapeHTML(p.brand)}</div></div><div class="name">${escapeHTML(p.name)}</div><div class="price-line"><span class="price">${fmtNumber(p.currentPrice)}원</span><span class="target">${sizeLabel ? sizeLabel + ' · ' : ''}목표 ${fmtNumber(p.targetPrice)}원</span></div>${cheaper ? `<div class="cheap-badge">↓ 정가 대비 ${fmtNumber(p.retailPrice - p.currentPrice)}원 저렴</div>` : ''}</div>`;
     });
     return html;
   },
@@ -324,10 +348,16 @@ const App = {
     const toggle = document.getElementById('cheap-toggle');
     if (toggle) toggle.addEventListener('change', e => { this.wishlistFilter = e.target.checked; this.render(); });
     document.querySelectorAll('.wishlist-row').forEach(row => {
-      row.addEventListener('click', e => { if (!e.target.dataset.delete) this.openDetail(row.dataset.id); });
+      row.addEventListener('click', e => {
+        if (e.target.closest('[data-delete]') || e.target.closest('[data-edit]')) return;
+        this.openDetail(row.dataset.id);
+      });
     });
     document.querySelectorAll('[data-delete]').forEach(btn => {
       btn.addEventListener('click', e => { e.stopPropagation(); const id = btn.dataset.delete; if (confirm('이 상품을 삭제할까요?')) ProductStore.remove(id); });
+    });
+    document.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); this.openEditModal(btn.dataset.edit); });
     });
   },
   renderCompare() {
@@ -342,9 +372,23 @@ const App = {
   },
   renderSettings() {
     const quickH = [1, 3, 6, 12, 24];
-    return `<div class="settings-section"><div class="section-title">월 예산 한도</div><div class="form-group"><input type="number" id="budget-input" placeholder="월 예산 (원)" value="${SettingsStore.monthlyBudget || ''}" inputmode="numeric"></div><div class="info-row"><span class="label">현재 설정</span><span class="value" style="color: var(--secondary-label)">${fmtNumber(SettingsStore.monthlyBudget)}원</span></div><div class="form-footer">한 달 동안 지출할 수 있는 최대 금액을 설정하세요.</div></div><div class="settings-section"><div class="section-title">알림</div><div class="filter-toggle"><div class="label-text">가격 알림 받기</div><label class="switch"><input type="checkbox" id="notif-toggle" ${SettingsStore.notificationsEnabled ? 'checked' : ''}><span class="slider"></span></label></div></div><div class="settings-section"><div class="section-title">알림 쿨타임</div><div class="form-group"><div class="stepper"><button class="stepper-btn" id="cooldown-dec">−</button><span class="stepper-label">쿨타임</span><span class="stepper-value"><span id="cooldown-val">${SettingsStore.notificationCooldownHours}</span>시간</span><button class="stepper-btn" id="cooldown-inc">+</button></div><div class="quick-buttons">${quickH.map(h => `<button data-hours="${h}" class="${SettingsStore.notificationCooldownHours === h ? 'selected' : ''}">${h}h</button>`).join('')}</div></div><div class="form-footer">동일한 상품에 대한 알림은 설정한 시간에 한 번만 전송됩니다. (${CooldownConfig.min}~${CooldownConfig.max}시간)</div></div><div class="settings-section"><div class="section-title">정보</div><div class="form-group"><div class="info-row"><span class="label">앱 이름</span><span class="value" style="color: var(--secondary-label)">KreamPrice</span></div><div class="info-row"><span class="label">버전</span><span class="value" style="color: var(--secondary-label)">1.0.0</span></div></div></div>`;
+    return `<div class="settings-section"><div class="section-title">내 사이즈</div><div class="form-group"><input type="text" id="shoe-size-input" placeholder="신발 사이즈 (예: 270)" value="${escapeAttr(SettingsStore.shoeSize)}" inputmode="numeric"><input type="text" id="clothing-size-input" placeholder="옷 사이즈 (예: M, L, 100)" value="${escapeAttr(SettingsStore.clothingSize)}"></div><div class="form-footer">스크린샷에 여러 사이즈 가격이 있으면 내 사이즈 가격이 우선 입력됩니다.</div></div><div class="settings-section"><div class="section-title">월 예산 한도</div><div class="form-group"><input type="number" id="budget-input" placeholder="월 예산 (원)" value="${SettingsStore.monthlyBudget || ''}" inputmode="numeric"></div><div class="info-row"><span class="label">현재 설정</span><span class="value" style="color: var(--secondary-label)">${fmtNumber(SettingsStore.monthlyBudget)}원</span></div><div class="form-footer">한 달 동안 지출할 수 있는 최대 금액을 설정하세요.</div></div><div class="settings-section"><div class="section-title">알림</div><div class="filter-toggle"><div class="label-text">가격 알림 받기</div><label class="switch"><input type="checkbox" id="notif-toggle" ${SettingsStore.notificationsEnabled ? 'checked' : ''}><span class="slider"></span></label></div></div><div class="settings-section"><div class="section-title">알림 쿨타임</div><div class="form-group"><div class="stepper"><button class="stepper-btn" id="cooldown-dec">−</button><span class="stepper-label">쿨타임</span><span class="stepper-value"><span id="cooldown-val">${SettingsStore.notificationCooldownHours}</span>시간</span><button class="stepper-btn" id="cooldown-inc">+</button></div><div class="quick-buttons">${quickH.map(h => `<button data-hours="${h}" class="${SettingsStore.notificationCooldownHours === h ? 'selected' : ''}">${h}h</button>`).join('')}</div></div><div class="form-footer">동일한 상품에 대한 알림은 설정한 시간에 한 번만 전송됩니다. (${CooldownConfig.min}~${CooldownConfig.max}시간)</div></div><div class="settings-section"><div class="section-title">정보</div><div class="form-group"><div class="info-row"><span class="label">앱 이름</span><span class="value" style="color: var(--secondary-label)">KreamPrice</span></div><div class="info-row"><span class="label">버전</span><span class="value" style="color: var(--secondary-label)">${APP_VERSION}</span></div></div></div>`;
   },
   bindSettingsEvents() {
+    const shoe = document.getElementById('shoe-size-input');
+    if (shoe) {
+      shoe.addEventListener('input', e => {
+        SettingsStore.shoeSize = e.target.value.trim();
+        SettingsStore.save();
+      });
+    }
+    const clothing = document.getElementById('clothing-size-input');
+    if (clothing) {
+      clothing.addEventListener('input', e => {
+        SettingsStore.clothingSize = e.target.value.trim();
+        SettingsStore.save();
+      });
+    }
     const budget = document.getElementById('budget-input');
     if (budget) {
       budget.addEventListener('input', e => {
@@ -396,18 +440,22 @@ const App = {
     const total = product.currentPrice + inspection + shipping;
     const kreamBtn = product.kreamURL ? `<a class="kream-link-btn full-width" href="${escapeAttr(product.kreamURL)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l10-10M17 7v10H7"/></svg> 크림에서 보기</a>` : '';
     const lastNotif = product.lastNotifiedAt ? `<div class="header-card last-notif">마지막 알림: ${fmtDateTime(product.lastNotifiedAt)}</div>` : '';
+    // 최근 일주일 가격 히스토리만 필터링
+    const weekAgo = Date.now() - 7 * 86400000;
+    const weekHistory = (product.priceHistory || []).filter(r => new Date(r.date).getTime() >= weekAgo);
     const modal = document.getElementById('modal-content');
-    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="detail-close">닫기</button><h2>${escapeHTML(product.name)}</h2><span></span></div><div class="card header-card"><div class="brand">${escapeHTML(product.brand)}</div><div class="name">${escapeHTML(product.name)}</div><div class="size">사이즈 ${escapeHTML(product.size)}</div><hr><div class="info-row emphasized"><span class="label">현재가</span><span class="value">${fmtNumber(product.currentPrice)}원</span></div><div class="info-row"><span class="label">정가</span><span class="value">${fmtNumber(product.retailPrice)}원</span></div><div class="info-row"><span class="label">목표가</span><span class="value">${fmtNumber(product.targetPrice)}원</span></div>${lastNotif}${kreamBtn}</div><div class="card"><div class="calc-title">💳 결제 예상금액</div><div class="calc-line"><span class="label">상품가</span><span>${fmtNumber(product.currentPrice)}원</span></div><div class="calc-line"><span class="label">검수비 (1%)</span><span>${fmtNumber(inspection)}원</span></div><div class="calc-line"><span class="label">배송비</span><span>${fmtNumber(shipping)}원</span></div><div class="calc-total"><span class="label">총 결제금액</span><span class="value">${fmtNumber(total)}원</span></div></div><div class="card"><div class="calc-title">📈 가격 변동</div>${product.priceHistory.length === 0 ? '<div class="chart-empty">기록된 가격 데이터가 없습니다.</div>' : '<div class="chart-container"><canvas id="price-chart"></canvas></div>'}</div>`;
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="detail-close">닫기</button><h2>${escapeHTML(product.name)}</h2><button class="confirm" id="detail-edit">수정</button></div><div class="card header-card"><div class="brand">${escapeHTML(product.brand)}</div><div class="name">${escapeHTML(product.name)}</div><div class="size">사이즈 ${escapeHTML(product.size)}</div><hr><div class="info-row emphasized"><span class="label">현재가</span><span class="value">${fmtNumber(product.currentPrice)}원</span></div><div class="info-row"><span class="label">정가</span><span class="value">${fmtNumber(product.retailPrice)}원</span></div><div class="info-row"><span class="label">목표가</span><span class="value">${fmtNumber(product.targetPrice)}원</span></div>${lastNotif}${kreamBtn}</div><div class="card"><div class="calc-title">💳 결제 예상금액</div><div class="calc-line"><span class="label">상품가</span><span>${fmtNumber(product.currentPrice)}원</span></div><div class="calc-line"><span class="label">검수비 (1%)</span><span>${fmtNumber(inspection)}원</span></div><div class="calc-line"><span class="label">배송비</span><span>${fmtNumber(shipping)}원</span></div><div class="calc-total"><span class="label">총 결제금액</span><span class="value">${fmtNumber(total)}원</span></div></div><div class="card"><div class="calc-title">📈 최근 일주일 가격 변동</div>${weekHistory.length === 0 ? '<div class="chart-empty">최근 일주일 동안 기록된 가격 변동이 없습니다.</div>' : '<div class="chart-container"><canvas id="price-chart"></canvas></div>'}</div>`;
     document.getElementById('modal-backdrop').classList.remove('hidden');
     document.getElementById('detail-close').addEventListener('click', () => this.closeModal());
-    if (product.priceHistory.length > 0 && window.Chart) {
+    document.getElementById('detail-edit').addEventListener('click', () => this.openEditModal(product.id));
+    if (weekHistory.length > 0 && window.Chart) {
       const ctx = document.getElementById('price-chart').getContext('2d');
       if (this.currentChart) this.currentChart.destroy();
       this.currentChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: product.priceHistory.map(r => fmtDate(r.date)),
-          datasets: [{ data: product.priceHistory.map(r => r.price), borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.1)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#007AFF', fill: true }]
+          labels: weekHistory.map(r => fmtDate(r.date)),
+          datasets: [{ data: weekHistory.map(r => r.price), borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.1)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#007AFF', fill: true }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { position: 'left', ticks: { callback: v => fmtNumber(v) + '원' } } } }
       });
@@ -415,7 +463,8 @@ const App = {
   },
   openAddModal() {
     const modal = document.getElementById('modal-content');
-    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">스크린샷 인식</div><div class="form-group"><label for="p-image" style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--separator);border-radius:8px;cursor:pointer;background:var(--tertiary-background)"><span style="font-size:18px">📸</span><span>Kream 캡처 이미지 선택</span></label><input type="file" id="p-image" accept="image/*" style="display:none"></div><div id="image-status"></div><div class="form-footer">Kream 앱 스크린샷을 업로드하면 자동으로 정보가 입력됩니다.</div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
+    const defaultSize = SettingsStore.shoeSize || '';
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="add-cancel">취소</button><h2>상품 추가</h2><button class="confirm" id="add-save" disabled>저장</button></div><div class="settings-section"><div class="section-title">스크린샷 인식 (최대 3장)</div><div class="form-group"><label for="p-image" style="display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--separator);border-radius:8px;cursor:pointer;background:var(--tertiary-background)"><span style="font-size:18px">📸</span><span>Kream 캡처 이미지 선택 (최대 3장)</span></label><input type="file" id="p-image" accept="image/*" multiple style="display:none"></div><div id="image-status"></div><div class="form-footer">여러 장의 스크린샷을 한 번에 선택하면 종합해서 정보를 자동 입력합니다.</div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><div class="url-input-row"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><input type="url" id="kream-url" placeholder="https://kream.co.kr/products/…" autocomplete="off"><button class="fetch-btn" id="fetch-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div></div><div id="fetch-status"></div><div class="form-footer">크림 상품 페이지 URL을 붙여넣으면 자동으로 정보를 채웁니다.</div></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="p-brand" placeholder="브랜드 (예: Nike)"><input type="text" id="p-name" placeholder="상품명"><input type="text" id="p-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(defaultSize)}"></div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="p-current" placeholder="현재가" inputmode="numeric"><input type="number" id="p-target" placeholder="목표가" inputmode="numeric"><input type="number" id="p-retail" placeholder="정가" inputmode="numeric"></div></div>`;
     document.getElementById('modal-backdrop').classList.remove('hidden');
     const saveBtn = document.getElementById('add-save');
     const updateCanSave = () => {
@@ -428,38 +477,46 @@ const App = {
     document.getElementById('add-cancel').addEventListener('click', () => this.closeModal());
     const imageInput = document.getElementById('p-image');
     const imageStatus = document.getElementById('image-status');
-    const recognizeImage = async (file) => {
-      if (!file) return;
-      imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 전처리 중…</div>';
-      try {
-        // 이미지 전처리: 상단 상태바, 하단 버튼바 제거
-        const processedBlob = await this.preprocessImage(file);
-        imageStatus.innerHTML = '<div class="status-error"><span class="spinner"></span> 이미지 인식 중… (첫 실행 시 모델 다운로드)</div>';
-        const { data: { text } } = await Tesseract.recognize(processedBlob, 'kor+eng', {
-          logger: m => { if (m.status === 'recognizing text') console.log(`[OCR] ${Math.round(m.progress * 100)}%`); }
-        });
-        console.log('[OCR Result]', text);
-        if (!text || text.trim().length < 5) {
-          imageStatus.innerHTML = '<div class="status-error">⚠ 인식된 텍스트가 너무 짧습니다. 더 명확한 스크린샷을 시도해주세요.</div>';
-          return;
+    const recognizeImages = async (files) => {
+      if (!files || files.length === 0) return;
+      const list = Array.from(files).slice(0, 3); // 최대 3장
+      const total = list.length;
+      const parsed = [];
+      const fullText = [];
+      for (let i = 0; i < total; i++) {
+        const file = list[i];
+        imageStatus.innerHTML = `<div class="status-error"><span class="spinner"></span> ${i + 1}/${total} 번째 이미지 인식 중…</div>`;
+        try {
+          const processedBlob = await this.preprocessImage(file);
+          const { data: { text } } = await Tesseract.recognize(processedBlob, 'kor+eng', {
+            logger: m => { if (m.status === 'recognizing text') console.log(`[OCR ${i + 1}/${total}] ${Math.round(m.progress * 100)}%`); }
+          });
+          console.log(`[OCR ${i + 1}/${total} Result]`, text);
+          if (text && text.trim().length >= 5) {
+            fullText.push(text);
+            parsed.push(this.parseKreamScreenshot(text));
+          }
+        } catch (e) {
+          console.error(`[OCR ${i + 1}/${total} Error]`, e);
         }
-        const info = this.parseKreamScreenshot(text);
-        const filled = [];
-        if (info.brand) { document.getElementById('p-brand').value = info.brand; filled.push('브랜드'); }
-        if (info.name) { document.getElementById('p-name').value = info.name; filled.push('상품명'); }
-        if (info.currentPrice > 0) { document.getElementById('p-current').value = info.currentPrice; filled.push('현재가'); }
-        if (info.retailPrice > 0) { document.getElementById('p-retail').value = info.retailPrice; filled.push('정가'); }
-        if (info.size) { document.getElementById('p-size').value = info.size; filled.push('사이즈'); }
-        let statusMsg = filled.length ? `✓ 인식됨: ${filled.join(', ')}` : '⚠ 일부 정보를 찾지 못했습니다.';
-        imageStatus.innerHTML = `<div class="${filled.length ? 'status-success' : 'status-error'}">${statusMsg}<br><span style="font-size:0.85em;opacity:0.7">정확하지 않으면 직접 수정하세요</span></div>`;
-        updateCanSave();
-      } catch (e) {
-        const errMsg = e.message || '인식 실패';
-        imageStatus.innerHTML = `<div class="status-error">⚠ ${errMsg}<br><span style="font-size:0.85em">다시 시도하거나 URL을 직접 입력하세요</span></div>`;
-        console.error('[OCR Error]', e);
       }
+      if (parsed.length === 0) {
+        imageStatus.innerHTML = '<div class="status-error">⚠ 모든 이미지에서 인식 실패. 더 명확한 스크린샷을 시도해주세요.</div>';
+        return;
+      }
+      // 여러 이미지의 결과를 종합 + 내 사이즈 가격 우선 추출
+      const merged = this.mergeOCRResults(parsed, fullText.join('\n'), SettingsStore.shoeSize);
+      const filled = [];
+      if (merged.brand) { document.getElementById('p-brand').value = merged.brand; filled.push('브랜드'); }
+      if (merged.name) { document.getElementById('p-name').value = merged.name; filled.push('상품명'); }
+      if (merged.currentPrice > 0) { document.getElementById('p-current').value = merged.currentPrice; filled.push('현재가'); }
+      if (merged.retailPrice > 0) { document.getElementById('p-retail').value = merged.retailPrice; filled.push('정가'); }
+      if (merged.size) { document.getElementById('p-size').value = merged.size; filled.push('사이즈'); }
+      const statusMsg = filled.length ? `✓ ${total}장 인식됨: ${filled.join(', ')}` : '⚠ 일부 정보를 찾지 못했습니다.';
+      imageStatus.innerHTML = `<div class="${filled.length ? 'status-success' : 'status-error'}">${statusMsg}<br><span style="font-size:0.85em;opacity:0.7">정확하지 않으면 직접 수정하세요</span></div>`;
+      updateCanSave();
     };
-    imageInput.addEventListener('change', (e) => recognizeImage(e.target.files?.[0]));
+    imageInput.addEventListener('change', (e) => recognizeImages(e.target.files));
     const urlInput = document.getElementById('kream-url');
     let lastFetched = '';
     const fetchStatus = document.getElementById('fetch-status');
@@ -513,6 +570,44 @@ const App = {
       this.closeModal();
     });
   },
+  openEditModal(id) {
+    const product = ProductStore.products.find(p => p.id === id);
+    if (!product) return;
+    const modal = document.getElementById('modal-content');
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="edit-cancel">취소</button><h2>상품 수정</h2><button class="confirm" id="edit-save">저장</button></div><div class="settings-section"><div class="section-title">상품 정보</div><div class="form-group"><input type="text" id="e-brand" placeholder="브랜드" value="${escapeAttr(product.brand)}"><input type="text" id="e-name" placeholder="상품명" value="${escapeAttr(product.name)}"><input type="text" id="e-size" placeholder="사이즈 (예: 270)" value="${escapeAttr(product.size)}" inputmode="numeric"></div><div class="form-footer">내 사이즈에 해당하는 가격을 아래에 입력하세요.</div></div><div class="settings-section"><div class="section-title">가격</div><div class="form-group"><input type="number" id="e-current" placeholder="내 사이즈 현재가" value="${product.currentPrice || ''}" inputmode="numeric"><input type="number" id="e-target" placeholder="목표가" value="${product.targetPrice || ''}" inputmode="numeric"><input type="number" id="e-retail" placeholder="정가" value="${product.retailPrice || ''}" inputmode="numeric"></div></div><div class="settings-section"><div class="section-title">Kream 링크</div><div class="form-group"><input type="url" id="e-url" placeholder="https://kream.co.kr/products/…" value="${escapeAttr(product.kreamURL || '')}"></div></div>`;
+    document.getElementById('modal-backdrop').classList.remove('hidden');
+    document.getElementById('edit-cancel').addEventListener('click', () => this.closeModal());
+    document.getElementById('edit-save').addEventListener('click', () => {
+      const newCurrent = parseInt(document.getElementById('e-current').value, 10) || 0;
+      const newTarget = parseInt(document.getElementById('e-target').value, 10) || newCurrent;
+      const newRetail = parseInt(document.getElementById('e-retail').value, 10) || newCurrent;
+      const newName = document.getElementById('e-name').value.trim();
+      const newBrand = document.getElementById('e-brand').value.trim();
+      if (!newBrand || !newName || newCurrent <= 0) {
+        alert('브랜드, 상품명, 현재가는 필수입니다.');
+        return;
+      }
+      // 가격이 바뀌면 가격 히스토리에 추가
+      const history = Array.isArray(product.priceHistory) ? [...product.priceHistory] : [];
+      const lastPrice = history.length ? history[history.length - 1].price : null;
+      if (lastPrice !== newCurrent) {
+        history.push({ id: uuid(), date: new Date().toISOString(), price: newCurrent });
+      }
+      const updated = {
+        ...product,
+        brand: newBrand,
+        name: newName,
+        size: document.getElementById('e-size').value.trim(),
+        kreamURL: document.getElementById('e-url').value.trim(),
+        currentPrice: newCurrent,
+        targetPrice: newTarget,
+        retailPrice: newRetail,
+        priceHistory: history
+      };
+      ProductStore.update(updated);
+      this.closeModal();
+    });
+  },
   async preprocessImage(file) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -537,6 +632,60 @@ const App = {
       img.onerror = () => reject(new Error('이미지 로드 실패'));
       img.src = URL.createObjectURL(file);
     });
+  },
+  mergeOCRResults(parsedList, combinedText, mySize) {
+    // 여러 캡처 결과를 종합 (필드별로 가장 신뢰도 높은 값 채택)
+    const merged = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };
+    // brand: 가장 많이 등장한 값
+    const brandCounts = {};
+    parsedList.forEach(p => { if (p.brand) brandCounts[p.brand] = (brandCounts[p.brand] || 0) + 1; });
+    merged.brand = Object.keys(brandCounts).sort((a, b) => brandCounts[b] - brandCounts[a])[0] || '';
+    // name: 가장 길고 의미있는 이름 (정보량이 많은 것)
+    const names = parsedList.map(p => p.name).filter(Boolean);
+    merged.name = names.sort((a, b) => b.length - a.length)[0] || '';
+    // size: 첫 번째 발견된 값 또는 사용자 설정 사이즈
+    const sizes = parsedList.map(p => p.size).filter(Boolean);
+    merged.size = sizes[0] || mySize || '';
+    // 가격: 모든 가격을 모아 빈도/맥락으로 결정
+    const allCurrent = parsedList.map(p => p.currentPrice).filter(p => p > 0);
+    const allRetail = parsedList.map(p => p.retailPrice).filter(p => p > 0);
+    // 정가: 모든 OCR이 동의하는 값 (보통 정가는 변하지 않음)
+    if (allRetail.length) {
+      const counts = {};
+      allRetail.forEach(p => counts[p] = (counts[p] || 0) + 1);
+      merged.retailPrice = parseInt(Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0], 10) || 0;
+    }
+    // 현재가: 내 사이즈 기준 가격을 우선 추출
+    if (mySize) {
+      const sizePrice = this.findPriceForSize(combinedText, mySize);
+      if (sizePrice > 0) merged.currentPrice = sizePrice;
+    }
+    if (merged.currentPrice === 0 && allCurrent.length) {
+      const counts = {};
+      allCurrent.forEach(p => counts[p] = (counts[p] || 0) + 1);
+      merged.currentPrice = parseInt(Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0], 10) || 0;
+    }
+    return merged;
+  },
+  findPriceForSize(text, size) {
+    // 사이즈 옆이나 가까운 위치의 가격 패턴 찾기
+    if (!size) return 0;
+    const sizeStr = String(size).trim();
+    const escaped = sizeStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // 패턴 1: "270 ... 123,000원" (사이즈와 가격이 한 줄 또는 인접)
+    const patterns = [
+      new RegExp(`${escaped}\\s*[^\\d]{0,10}(\\d{1,3}(?:,\\d{3})+)`, 'i'),
+      new RegExp(`(\\d{1,3}(?:,\\d{3})+)\\s*[^\\d]{0,10}${escaped}`, 'i'),
+      new RegExp(`${escaped}[^\\n]{0,40}?(\\d{1,3}(?:,\\d{3})+)`, 'i')
+    ];
+    for (const re of patterns) {
+      const m = text.match(re);
+      if (m) {
+        const val = parseInt(m[1].replace(/,/g, ''), 10);
+        if (val >= 10000 && val <= 100000000) return val;
+      }
+    }
+    return 0;
   },
   parseKreamScreenshot(text) {
     const result = { brand: '', name: '', currentPrice: 0, retailPrice: 0, size: '' };

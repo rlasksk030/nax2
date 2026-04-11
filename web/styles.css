@@ -194,6 +194,12 @@ button:disabled {
   justify-content: space-between;
   font-size: 11px;
   color: var(--secondary-label);
+  padding-right: 110px;
+}
+
+.wishlist-row .brand-line {
+  font-size: 11px;
+  color: var(--secondary-label);
 }
 
 .wishlist-row .name {
@@ -226,17 +232,30 @@ button:disabled {
   font-weight: 500;
 }
 
-.delete-btn {
+.row-actions {
   position: absolute;
   right: 12px;
   top: 12px;
-  background: var(--red);
-  color: white;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.row-btn {
   border: none;
   border-radius: 12px;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 600;
+  color: white;
+}
+
+.edit-btn {
+  background: var(--accent);
+}
+
+.delete-btn {
+  background: var(--red);
 }
 
 /* ============ Switch ============ */
