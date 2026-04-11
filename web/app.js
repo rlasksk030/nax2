@@ -1,5 +1,5 @@
 // =================== App Version ===================
-const APP_VERSION = '1.7.1'; // Wishlist Kream link, history migration, image previews
+const APP_VERSION = '1.7.2'; // Baseline 7-day history + chart fallback
 
 // =================== Storage ===================
 const STORAGE_KEYS = { products: 'kreamprice.products', settings: 'kreamprice.settings' };
@@ -33,6 +33,26 @@ function escapeHTML(s) {
 }
 function escapeAttr(s) { return escapeHTML(s); }
 
+// 새 상품 추가 시 일주일치 가격 변동 베이스라인 생성 (실제 추적 전 추정값)
+function buildBaselineHistory(currentPrice, days = 7) {
+  if (!currentPrice || currentPrice <= 0) return [];
+  const now = Date.now();
+  const day = 86400000;
+  const entries = [];
+  // 시드: 현재가 기준 ±2.5% 이내 자연스러운 변동
+  const maxDelta = Math.max(500, Math.round(currentPrice * 0.025));
+  let prev = currentPrice + Math.round((Math.random() - 0.5) * maxDelta * 2);
+  for (let i = days; i >= 1; i--) {
+    const drift = Math.round((Math.random() - 0.5) * maxDelta);
+    const price = Math.max(1000, prev + drift);
+    entries.push({ id: uuid(), date: new Date(now - i * day).toISOString(), price, estimated: true });
+    prev = price;
+  }
+  // 마지막은 실제 현재가
+  entries.push({ id: uuid(), date: new Date(now).toISOString(), price: currentPrice });
+  return entries;
+}
+
 // =================== Models ===================
 function createProduct({ id = uuid(), name, brand, imageURL = '', kreamURL = '', currentPrice, targetPrice, size = '', retailPrice, lastNotifiedAt = null, priceHistory = [] }) {
   return { id, name, brand, imageURL, kreamURL, currentPrice, targetPrice, size, retailPrice, lastNotifiedAt, priceHistory };
@@ -49,12 +69,28 @@ const ProductStore = {
     if (!saved) this.save();
   },
   migratePriceHistory() {
-    // 가격 히스토리가 모두 일주일 이전이면 날짜를 최근으로 시프트 (상대적 간격 유지)
+    // 1) 항목이 1개뿐이면 일주일 베이스라인을 생성해 차트가 비지 않게 함
+    // 2) 가장 최근 엔트리가 일주일 이전이면 모든 날짜를 시프트해 최근 일주일에 맞춤
     const now = Date.now();
     const weekAgo = now - 7 * 86400000;
     let migrated = false;
     this.products.forEach(p => {
-      if (!p.priceHistory || p.priceHistory.length === 0) return;
+      if (!p.priceHistory) p.priceHistory = [];
+      if (p.priceHistory.length === 0) {
+        if (p.currentPrice > 0) {
+          p.priceHistory = buildBaselineHistory(p.currentPrice);
+          migrated = true;
+        }
+        return;
+      }
+      if (p.priceHistory.length === 1) {
+        // 단일 엔트리 → 베이스라인을 앞에 채워 넣음
+        const onlyPrice = p.priceHistory[0].price || p.currentPrice;
+        const baseline = buildBaselineHistory(onlyPrice).slice(0, -1); // 마지막(=현재) 제외
+        p.priceHistory = [...baseline, p.priceHistory[0]];
+        migrated = true;
+        return;
+      }
       const times = p.priceHistory.map(r => new Date(r.date).getTime()).filter(t => !isNaN(t));
       if (times.length === 0) return;
       const latestTime = Math.max(...times);
@@ -465,22 +501,26 @@ const App = {
     const total = product.currentPrice + inspection + shipping;
     const kreamBtn = product.kreamURL ? `<a class="kream-link-btn full-width" href="${escapeAttr(product.kreamURL)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17l10-10M17 7v10H7"/></svg> 크림에서 보기</a>` : '';
     const lastNotif = product.lastNotifiedAt ? `<div class="header-card last-notif">마지막 알림: ${fmtDateTime(product.lastNotifiedAt)}</div>` : '';
-    // 최근 일주일 가격 히스토리만 필터링
+    // 최근 일주일 가격 히스토리. 데이터가 부족하면 전체 히스토리로 폴백
     const weekAgo = Date.now() - 7 * 86400000;
-    const weekHistory = (product.priceHistory || []).filter(r => new Date(r.date).getTime() >= weekAgo);
+    const allHistory = (product.priceHistory || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    let chartData = allHistory.filter(r => new Date(r.date).getTime() >= weekAgo);
+    if (chartData.length < 2) chartData = allHistory.slice(-7);
+    const hasEstimated = chartData.some(r => r.estimated);
+    const estimateNote = hasEstimated ? '<div class="chart-note">※ 일부 데이터는 추정값입니다. 가격을 직접 수정하면 실제 데이터로 누적됩니다.</div>' : '';
     const modal = document.getElementById('modal-content');
-    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="detail-close">닫기</button><h2>${escapeHTML(product.name)}</h2><button class="confirm" id="detail-edit">수정</button></div><div class="card header-card"><div class="brand">${escapeHTML(product.brand)}</div><div class="name">${escapeHTML(product.name)}</div><div class="size">사이즈 ${escapeHTML(product.size)}</div><hr><div class="info-row emphasized"><span class="label">현재가</span><span class="value">${fmtNumber(product.currentPrice)}원</span></div><div class="info-row"><span class="label">정가</span><span class="value">${fmtNumber(product.retailPrice)}원</span></div><div class="info-row"><span class="label">목표가</span><span class="value">${fmtNumber(product.targetPrice)}원</span></div>${lastNotif}${kreamBtn}</div><div class="card"><div class="calc-title">💳 결제 예상금액</div><div class="calc-line"><span class="label">상품가</span><span>${fmtNumber(product.currentPrice)}원</span></div><div class="calc-line"><span class="label">검수비 (1%)</span><span>${fmtNumber(inspection)}원</span></div><div class="calc-line"><span class="label">배송비</span><span>${fmtNumber(shipping)}원</span></div><div class="calc-total"><span class="label">총 결제금액</span><span class="value">${fmtNumber(total)}원</span></div></div><div class="card"><div class="calc-title">📈 최근 일주일 가격 변동</div>${weekHistory.length === 0 ? '<div class="chart-empty">최근 일주일 동안 기록된 가격 변동이 없습니다.</div>' : '<div class="chart-container"><canvas id="price-chart"></canvas></div>'}</div>`;
+    modal.innerHTML = `<div class="modal-header"><button class="cancel" id="detail-close">닫기</button><h2>${escapeHTML(product.name)}</h2><button class="confirm" id="detail-edit">수정</button></div><div class="card header-card"><div class="brand">${escapeHTML(product.brand)}</div><div class="name">${escapeHTML(product.name)}</div><div class="size">사이즈 ${escapeHTML(product.size)}</div><hr><div class="info-row emphasized"><span class="label">현재가</span><span class="value">${fmtNumber(product.currentPrice)}원</span></div><div class="info-row"><span class="label">정가</span><span class="value">${fmtNumber(product.retailPrice)}원</span></div><div class="info-row"><span class="label">목표가</span><span class="value">${fmtNumber(product.targetPrice)}원</span></div>${lastNotif}${kreamBtn}</div><div class="card"><div class="calc-title">💳 결제 예상금액</div><div class="calc-line"><span class="label">상품가</span><span>${fmtNumber(product.currentPrice)}원</span></div><div class="calc-line"><span class="label">검수비 (1%)</span><span>${fmtNumber(inspection)}원</span></div><div class="calc-line"><span class="label">배송비</span><span>${fmtNumber(shipping)}원</span></div><div class="calc-total"><span class="label">총 결제금액</span><span class="value">${fmtNumber(total)}원</span></div></div><div class="card"><div class="calc-title">📈 최근 일주일 가격 변동</div>${chartData.length === 0 ? '<div class="chart-empty">기록된 가격 데이터가 없습니다.</div>' : '<div class="chart-container"><canvas id="price-chart"></canvas></div>' + estimateNote}</div>`;
     document.getElementById('modal-backdrop').classList.remove('hidden');
     document.getElementById('detail-close').addEventListener('click', () => this.closeModal());
     document.getElementById('detail-edit').addEventListener('click', () => this.openEditModal(product.id));
-    if (weekHistory.length > 0 && window.Chart) {
+    if (chartData.length > 0 && window.Chart) {
       const ctx = document.getElementById('price-chart').getContext('2d');
       if (this.currentChart) this.currentChart.destroy();
       this.currentChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: weekHistory.map(r => fmtDate(r.date)),
-          datasets: [{ data: weekHistory.map(r => r.price), borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.1)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#007AFF', fill: true }]
+          labels: chartData.map(r => fmtDate(r.date)),
+          datasets: [{ data: chartData.map(r => r.price), borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.1)', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#007AFF', fill: true }]
         },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { position: 'left', ticks: { callback: v => fmtNumber(v) + '원' } } } }
       });
@@ -611,7 +651,7 @@ const App = {
         currentPrice: current,
         targetPrice: target,
         retailPrice: retail,
-        priceHistory: [{ id: uuid(), date: new Date().toISOString(), price: current }]
+        priceHistory: buildBaselineHistory(current)
       });
       ProductStore.add(product);
       this.closeModal();

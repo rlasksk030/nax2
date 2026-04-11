@@ -636,6 +636,13 @@ button:disabled {
   font-size: 13px;
 }
 
+.chart-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--secondary-label);
+  line-height: 1.4;
+}
+
 /* ============ Compare ============ */
 .compare-row {
   background: var(--secondary-background);
