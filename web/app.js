@@ -1194,6 +1194,9 @@ const App = {
     const lines = rawLines
       .filter(l => l.length >= 2)
       .filter(l => !noiseRe.some(re => re.test(l)));
+    // Price-focused copy with OCR digit corrections (O→0, l→1, S→5, etc.)
+    // Brand/name detection still uses the original text to avoid corruption.
+    const correctedText = this.correctOCRDigits(text);
 
     // 2. 정가(발매가) 키워드
     const retailKeywords = [
@@ -1204,7 +1207,7 @@ const App = {
       /msrp\s*[:\s]*([\d,]+)/i
     ];
     for (const re of retailKeywords) {
-      const m = text.match(re);
+      const m = correctedText.match(re);
       if (m) {
         const val = parseInt(m[1].replace(/,/g, ''), 10);
         if (val >= 10000) { result.retailPrice = val; break; }
@@ -1220,7 +1223,7 @@ const App = {
       /판매\s*[:\s]*([\d,]+)/
     ];
     for (const re of currentKeywords) {
-      const m = text.match(re);
+      const m = correctedText.match(re);
       if (m) {
         const val = parseInt(m[1].replace(/,/g, ''), 10);
         if (val >= 10000) { result.currentPrice = val; break; }
@@ -1231,14 +1234,14 @@ const App = {
     const priceRegex = /(\d{1,3}(?:,\d{3})+|\d{5,8})/g;
     const allPrices = [];
     let m;
-    while ((m = priceRegex.exec(text)) !== null) {
+    while ((m = priceRegex.exec(correctedText)) !== null) {
       const val = parseInt(m[1].replace(/,/g, ''), 10);
       if (val >= 10000 && val <= 100000000) allPrices.push(val);
     }
     // "XX만원" / "XX.X만" 표기도 수집
     const manwonRe = /(\d+(?:\.\d)?)\s*만\s*원?/g;
     let mw;
-    while ((mw = manwonRe.exec(text)) !== null) {
+    while ((mw = manwonRe.exec(correctedText)) !== null) {
       const v = Math.round(parseFloat(mw[1]) * 10000);
       if (v >= 10000 && v <= 100000000) allPrices.push(v);
     }
@@ -1353,9 +1356,10 @@ const App = {
     const historyEntries = [];
     for (const line of rawLines) {
       // (a) YY/MM/DD 또는 YYYY.MM.DD 패턴 + 가격
-      const dateMatch = line.match(/(\d{2,4}[./\-]\s?\d{1,2}[./\-]\s?\d{1,2})/);
+      const corrLine = this.correctOCRDigits(line);
+      const dateMatch = corrLine.match(/(\d{2,4}[./\-]\s?\d{1,2}[./\-]\s?\d{1,2})/);
       if (!dateMatch) continue;
-      const priceInLine = line.match(/(\d{1,3}(?:,\d{3})+|\d{5,8})/);
+      const priceInLine = corrLine.match(/(\d{1,3}(?:,\d{3})+|\d{5,8})/);
       if (!priceInLine) continue;
       const val = parseInt(priceInLine[1].replace(/,/g, ''), 10);
       if (val < 10000 || val > 100000000) continue;
