@@ -1,0 +1,365 @@
+<script>
+/* ============================================================
+   ⌨️ 우리 반 타자 성장대회 – 학생 화면 스크립트
+   ============================================================ */
+
+var App = (function () {
+
+  var state = {
+    studentName: "",
+    hasBase: false,
+    hasFinal: false
+  };
+
+  /* ---------- 기본 도우미 ---------- */
+
+  function $(id) { return document.getElementById(id); }
+
+  /** 화면 전환 (새로고침 없이 부드럽게) */
+  function showView(name) {
+    var views = document.querySelectorAll(".view");
+    for (var i = 0; i < views.length; i++) views[i].classList.remove("active");
+    var target = $("view-" + name);
+    if (target) target.classList.add("active");
+    $("mainWrap").classList.toggle("wide", name === "admin");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function overlay(show, message) {
+    $("overlayMsg").textContent = message || "불러오는 중이에요...";
+    $("overlay").hidden = !show;
+  }
+
+  var toastTimer = null;
+  function toast(message, type) {
+    var el = $("toast");
+    el.textContent = message;
+    el.className = "toast show" + (type ? " " + type : "");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = "toast"; }, 3200);
+  }
+
+  /** google.script.run 을 Promise 처럼 사용 */
+  function call(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var runner = google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (err) {
+          reject(new Error(err && err.message ? err.message : "서버와 연결하지 못했습니다."));
+        });
+      runner[fnName].apply(runner, args);
+    });
+  }
+
+  /* ---------- 숫자 표시 ---------- */
+
+  function num(value) {
+    if (value === null || value === undefined || value === "") return "-";
+    var n = Number(value);
+    if (!isFinite(n)) return "-";
+    return (Math.round(n * 10) / 10).toString();
+  }
+
+  function signed(value, unit) {
+    if (value === null || value === undefined || value === "") return "-";
+    var n = Number(value);
+    var text = num(Math.abs(n));
+    var sign = n > 0 ? "+" : (n < 0 ? "-" : "");
+    return sign + text + (unit || "");
+  }
+
+  /* ---------- 입력값 검사 (서버에서도 다시 검사합니다) ---------- */
+
+  function readTrials(prefix) {
+    var trials = [];
+    for (var i = 1; i <= 3; i++) {
+      trials.push({
+        strokes: $(prefix + i + "s").value.trim(),
+        accuracy: $(prefix + i + "a").value.trim()
+      });
+    }
+    return trials;
+  }
+
+  function clearTrials(prefix) {
+    for (var i = 1; i <= 3; i++) {
+      $(prefix + i + "s").value = "";
+      $(prefix + i + "a").value = "";
+    }
+  }
+
+  function validateTrials(trials) {
+    for (var i = 0; i < trials.length; i++) {
+      var no = (i + 1) + "회";
+      var s = trials[i].strokes;
+      var a = trials[i].accuracy;
+
+      if (s === "") return no + " 타수가 비어 있어요. 3회 기록을 모두 입력해주세요.";
+      if (a === "") return no + " 정확도가 비어 있어요. 3회 기록을 모두 입력해주세요.";
+      if (!/^\d+$/.test(s)) return no + " 타수는 0~1000 사이의 숫자로 입력해주세요. (소수점 없이)";
+      if (!/^\d+(\.\d+)?$/.test(a)) return no + " 정확도는 0~100 사이의 숫자로 입력해주세요.";
+      if (Number(s) < 0 || Number(s) > 1000) return no + " 타수는 0~1000 사이의 숫자로 입력해주세요.";
+      if (Number(a) < 0 || Number(a) > 100) return no + " 정확도는 0~100 사이의 숫자로 입력해주세요.";
+    }
+    return "";
+  }
+
+  /* ---------- 첫 화면: 학생 명단 ---------- */
+
+  function loadStudents() {
+    overlay(true, "학생 명단을 불러오고 있어요...");
+    call("apiGetStudents").then(function (res) {
+      overlay(false);
+      var select = $("studentSelect");
+      select.innerHTML = "";
+
+      if (!res.ok) {
+        select.innerHTML = '<option value="">명단을 불러오지 못했어요</option>';
+        toast(res.message, "error");
+        return;
+      }
+      if (!res.students.length) {
+        select.innerHTML = '<option value="">학생 명단이 비어 있어요</option>';
+        toast("선생님께 '학생명단' 시트를 확인해 달라고 말씀드려 주세요.", "error");
+        return;
+      }
+
+      var first = document.createElement("option");
+      first.value = "";
+      first.textContent = "이름을 선택하세요";
+      select.appendChild(first);
+
+      res.students.forEach(function (student) {
+        var option = document.createElement("option");
+        option.value = student.name;
+        option.textContent = (student.number !== "" ? student.number + "번  " : "") + student.name;
+        select.appendChild(option);
+      });
+    }).catch(function (err) {
+      overlay(false);
+      toast(err.message, "error");
+    });
+  }
+
+  /* ---------- 메뉴 ---------- */
+
+  function openMenu(name) {
+    state.studentName = name;
+    $("menuName").textContent = name;
+    showView("menu");
+    refreshState();
+  }
+
+  function refreshState() {
+    setBadge("baseBadge", null);
+    setBadge("finalBadge", null);
+    return call("apiGetStudentState", state.studentName).then(function (res) {
+      if (!res.ok) { toast(res.message, "error"); return; }
+      state.hasBase = res.hasBase;
+      state.hasFinal = res.hasFinal;
+      setBadge("baseBadge", res.hasBase);
+      setBadge("finalBadge", res.hasFinal);
+      $("resultBadge").className = "badge " + (res.hasFinal ? "done" : "wait");
+      $("resultBadge").textContent = res.hasFinal ? "결과 보기" : "확인하기";
+    }).catch(function (err) { toast(err.message, "error"); });
+  }
+
+  function setBadge(id, done) {
+    var el = $(id);
+    if (done === null) { el.className = "badge wait"; el.textContent = "확인 중"; return; }
+    el.className = "badge " + (done ? "done" : "todo");
+    el.textContent = done ? "등록 완료" : "아직 안 함";
+  }
+
+  /* ---------- 저장 ---------- */
+
+  function saveRecord(kind) {
+    var prefix = kind === "base" ? "b" : "f";
+    var label = kind === "base" ? "기초" : "최종";
+    var trials = readTrials(prefix);
+
+    var message = validateTrials(trials);
+    if (message) { toast(message, "error"); return; }
+
+    var button = kind === "base" ? $("saveBaseBtn") : $("saveFinalBtn");
+    button.disabled = true;
+    overlay(true, "기록을 저장하고 있어요...");
+
+    call(kind === "base" ? "apiSaveBase" : "apiSaveFinal", state.studentName, trials)
+      .then(function (res) {
+        overlay(false);
+        button.disabled = false;
+
+        if (!res.ok) {
+          toast(res.message, "error");
+          if (res.duplicated) refreshState();
+          return;
+        }
+
+        clearTrials(prefix);
+        refreshState();
+
+        if (kind === "final" && res.result && res.result.state === "done") {
+          renderResult(res.result);
+          showView("result");
+          toast("최종 기록이 저장되었습니다!", "success");
+          return;
+        }
+
+        $("savedTitle").textContent = label + " 기록이 저장되었습니다.";
+        $("savedDesc").textContent = "3회 중 " + res.trialNo + "회 기록(타수의 중간값)이 내 " + label + " 기록이 되었어요.";
+        $("savedStrokesLabel").textContent = label + " 타수";
+        $("savedAccuracyLabel").textContent = label + " 정확도";
+        $("savedStrokes").textContent = num(res.strokes);
+        $("savedAccuracy").textContent = num(res.accuracy);
+        showView("saved");
+        toast(label + " 기록이 저장되었습니다!", "success");
+      })
+      .catch(function (err) {
+        overlay(false);
+        button.disabled = false;
+        toast(err.message, "error");
+      });
+  }
+
+  /* ---------- 성장 결과 ---------- */
+
+  function openResult() {
+    overlay(true, "성장 결과를 계산하고 있어요...");
+    call("apiGetMyResult", state.studentName).then(function (res) {
+      overlay(false);
+      if (!res.ok) { toast(res.message, "error"); return; }
+      renderResult(res.result);
+      showView("result");
+    }).catch(function (err) {
+      overlay(false);
+      toast(err.message, "error");
+    });
+  }
+
+  function renderResult(result) {
+    $("resultTitle").textContent = "🎉 " + state.studentName + "님의 타자 성장 결과";
+
+    if (!result || result.state !== "done") {
+      $("resultBody").hidden = true;
+      $("resultEmpty").hidden = false;
+      $("resultEmptyMsg").innerHTML = (result && result.state === "base")
+        ? "🌱 기초 기록은 <b>" + num(result.baseStrokes) + "타 / " + num(result.baseAccuracy) +
+          "%</b> 예요.<br>최종 기록을 등록하면 얼마나 성장했는지 볼 수 있어요!"
+        : "아직 등록한 기록이 없어요.<br><b>기초 기록 등록</b>부터 시작해 볼까요?";
+      return;
+    }
+
+    $("resultEmpty").hidden = true;
+    $("resultBody").hidden = false;
+
+    $("rBaseStrokes").textContent = num(result.baseStrokes);
+    $("rBaseAccuracy").textContent = num(result.baseAccuracy);
+    $("rFinalStrokes").textContent = num(result.finalStrokes);
+    $("rFinalAccuracy").textContent = num(result.finalAccuracy);
+
+    $("rIncrease").textContent = signed(result.increase, "타");
+    $("rRate").textContent = signed(result.rate, "%");
+    $("rAccDelta").textContent = signed(result.accuracyDelta, "%p");
+
+    $("rTotal").textContent = num(result.totalScore);
+    $("rScoreDetail").textContent =
+      "증가량 " + num(result.increaseScore) + "점 + 향상률 " + num(result.rateScore) +
+      "점 + 정확도 " + num(result.accuracyScore) + "점";
+    $("rCheer").textContent = cheerMessage(result);
+  }
+
+  function cheerMessage(result) {
+    if (result.increase <= 0) {
+      return "끝까지 도전한 것만으로도 멋져요. 다음엔 더 잘할 수 있어요! 💪";
+    }
+    if (result.totalScore >= 90) return "와! 처음의 나보다 정말 크게 성장했어요! 🎉";
+    if (result.totalScore >= 70) return "처음의 나보다 훨씬 성장했어요! 👏";
+    if (result.totalScore >= 50) return "꾸준히 연습한 만큼 잘 자랐어요! 🌱";
+    return "조금씩이지만 분명히 나아지고 있어요! 🙂";
+  }
+
+  /* ---------- 이벤트 연결 ---------- */
+
+  function bind() {
+    $("enterBtn").addEventListener("click", function () {
+      var name = $("studentSelect").value;
+      if (!name) { toast("이름을 먼저 선택해주세요.", "error"); return; }
+      openMenu(name);
+    });
+
+    $("studentSelect").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") $("enterBtn").click();
+    });
+
+    $("menuBase").addEventListener("click", function () {
+      if (state.hasBase) {
+        toast("이미 기초 기록이 등록되어 있습니다.", "error");
+        return;
+      }
+      showView("base");
+    });
+
+    $("menuFinal").addEventListener("click", function () {
+      if (!state.hasBase) {
+        toast("기초 기록을 먼저 등록해주세요.", "error");
+        return;
+      }
+      if (state.hasFinal) {
+        toast("이미 최종 기록이 등록되어 있습니다.", "error");
+        return;
+      }
+      showView("final");
+    });
+
+    $("menuResult").addEventListener("click", openResult);
+    $("menuBackBtn").addEventListener("click", function () { showView("home"); });
+
+    $("saveBaseBtn").addEventListener("click", function () { saveRecord("base"); });
+    $("saveFinalBtn").addEventListener("click", function () { saveRecord("final"); });
+
+    var backButtons = document.querySelectorAll("[data-back]");
+    for (var i = 0; i < backButtons.length; i++) {
+      backButtons[i].addEventListener("click", function (event) {
+        showView(event.currentTarget.getAttribute("data-back"));
+        refreshState();
+      });
+    }
+
+    $("goAdminBtn").addEventListener("click", function () { showView("adminLogin"); });
+    $("adminLoginBackBtn").addEventListener("click", function () { showView("home"); });
+
+    // 숫자만 입력되도록 부드럽게 도와줍니다.
+    var inputs = document.querySelectorAll('input[inputmode="numeric"], input[inputmode="decimal"]');
+    for (var j = 0; j < inputs.length; j++) {
+      inputs[j].addEventListener("input", function (event) {
+        var allowDot = event.target.getAttribute("inputmode") === "decimal";
+        var cleaned = event.target.value.replace(allowDot ? /[^0-9.]/g : /[^0-9]/g, "");
+        if (allowDot) {
+          var parts = cleaned.split(".");
+          if (parts.length > 2) cleaned = parts[0] + "." + parts.slice(1).join("");
+        }
+        if (cleaned !== event.target.value) event.target.value = cleaned;
+      });
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    bind();
+    loadStudents();
+  });
+
+  /* 관리 화면 스크립트에서도 쓰는 공용 함수들 */
+  return {
+    $: $,
+    call: call,
+    showView: showView,
+    overlay: overlay,
+    toast: toast,
+    num: num,
+    signed: signed,
+    state: state
+  };
+})();
+</script>

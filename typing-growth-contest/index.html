@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('style'); ?>
+</head>
+<body>
+
+<div class="wrap" id="mainWrap">
+
+  <!-- ===================== 학생: 첫 화면 ===================== -->
+  <section id="view-home" class="view active">
+    <header class="app-header">
+      <h1>⌨️ <?= appTitle ?></h1>
+      <p>한컴타자에서 잰 기록을 넣고, 처음보다 얼마나 자랐는지 확인해요!</p>
+    </header>
+
+    <div class="card">
+      <h2>내 이름 고르기</h2>
+      <p class="desc">이름을 고른 뒤 [들어가기]를 눌러주세요.</p>
+
+      <label for="studentSelect">학생 이름</label>
+      <select id="studentSelect">
+        <option value="">불러오는 중...</option>
+      </select>
+
+      <div style="height:14px"></div>
+      <button class="btn" id="enterBtn">들어가기</button>
+    </div>
+
+    <div class="footer-link">
+      <button id="goAdminBtn">선생님용 관리 화면</button>
+    </div>
+  </section>
+
+  <!-- ===================== 학생: 메뉴 ===================== -->
+  <section id="view-menu" class="view">
+    <header class="app-header">
+      <h1>⌨️ <?= appTitle ?></h1>
+      <p><b id="menuName">학생</b>님, 반가워요!</p>
+    </header>
+
+    <div class="menu-list">
+      <button class="menu-item" id="menuBase">
+        <span class="emoji">🌱</span>
+        <span class="texts">
+          <span class="title">기초 기록 등록</span>
+          <span class="sub">대회를 시작할 때 잰 3회 기록</span>
+        </span>
+        <span class="badge todo" id="baseBadge">아직 안 함</span>
+      </button>
+
+      <button class="menu-item" id="menuFinal">
+        <span class="emoji">🏁</span>
+        <span class="texts">
+          <span class="title">최종 기록 등록</span>
+          <span class="sub">대회 마지막 날 잰 3회 기록</span>
+        </span>
+        <span class="badge todo" id="finalBadge">아직 안 함</span>
+      </button>
+
+      <button class="menu-item" id="menuResult">
+        <span class="emoji">📈</span>
+        <span class="texts">
+          <span class="title">나의 성장 결과</span>
+          <span class="sub">처음의 나와 지금의 나를 비교해요</span>
+        </span>
+        <span class="badge wait" id="resultBadge">확인하기</span>
+      </button>
+    </div>
+
+    <div style="height:16px"></div>
+    <button class="btn ghost" id="menuBackBtn">← 이름 다시 고르기</button>
+  </section>
+
+  <!-- ===================== 학생: 기초 기록 등록 ===================== -->
+  <section id="view-base" class="view">
+    <div class="card">
+      <h2>🌱 기초 기록 등록</h2>
+      <p class="desc">한컴타자에서 <b>같은 조건</b>으로 3번 잰 기록을 입력해요.</p>
+
+      <div class="hint">
+        💡 3회 중 <b>타수의 중간값</b>이 내 기초 기록이 돼요.<br>
+        한 번 실수해도 괜찮아요!
+      </div>
+
+      <div class="trial">
+        <div class="trial-title">1회</div>
+        <div class="fields">
+          <div class="field">
+            <label for="b1s">타수</label>
+            <div class="input-unit">
+              <input type="text" id="b1s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 184" autocomplete="off">
+              <span class="unit">타</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="b1a">정확도</label>
+            <div class="input-unit">
+              <input type="text" id="b1a" inputmode="decimal" placeholder="예) 94" autocomplete="off">
+              <span class="unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="trial">
+        <div class="trial-title">2회</div>
+        <div class="fields">
+          <div class="field">
+            <label for="b2s">타수</label>
+            <div class="input-unit">
+              <input type="text" id="b2s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 191" autocomplete="off">
+              <span class="unit">타</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="b2a">정확도</label>
+            <div class="input-unit">
+              <input type="text" id="b2a" inputmode="decimal" placeholder="예) 96" autocomplete="off">
+              <span class="unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="trial">
+        <div class="trial-title">3회</div>
+        <div class="fields">
+          <div class="field">
+            <label for="b3s">타수</label>
+            <div class="input-unit">
+              <input type="text" id="b3s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 176" autocomplete="off">
+              <span class="unit">타</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="b3a">정확도</label>
+            <div class="input-unit">
+              <input type="text" id="b3a" inputmode="decimal" placeholder="예) 95" autocomplete="off">
+              <span class="unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:8px"></div>
+      <div class="btn-row">
+        <button class="btn ghost" data-back="menu">← 뒤로</button>
+        <button class="btn green" id="saveBaseBtn">기초 기록 저장하기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 학생: 최종 기록 등록 ===================== -->
+  <section id="view-final" class="view">
+    <div class="card">
+      <h2>🏁 최종 기록 등록</h2>
+      <p class="desc">대회 마지막 날, 한컴타자에서 3번 잰 기록을 입력해요.</p>
+
+      <div class="hint">
+        💡 기초 기록과 <b>같은 방식</b>으로 재야 정확하게 비교할 수 있어요.
+      </div>
+
+      <div class="trial">
+        <div class="trial-title">1회</div>
+        <div class="fields">
+          <div class="field">
+            <label for="f1s">타수</label>
+            <div class="input-unit">
+              <input type="text" id="f1s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 240" autocomplete="off">
+              <span class="unit">타</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f1a">정확도</label>
+            <div class="input-unit">
+              <input type="text" id="f1a" inputmode="decimal" placeholder="예) 97" autocomplete="off">
+              <span class="unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="trial">
+        <div class="trial-title">2회</div>
+        <div class="fields">
+          <div class="field">
+            <label for="f2s">타수</label>
+            <div class="input-unit">
+              <input type="text" id="f2s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 247" autocomplete="off">
+              <span class="unit">타</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f2a">정확도</label>
+            <div class="input-unit">
+              <input type="text" id="f2a" inputmode="decimal" placeholder="예) 97" autocomplete="off">
+              <span class="unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="trial">
+        <div class="trial-title">3회</div>
+        <div class="fields">
+          <div class="field">
+            <label for="f3s">타수</label>
+            <div class="input-unit">
+              <input type="text" id="f3s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 252" autocomplete="off">
+              <span class="unit">타</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f3a">정확도</label>
+            <div class="input-unit">
+              <input type="text" id="f3a" inputmode="decimal" placeholder="예) 98" autocomplete="off">
+              <span class="unit">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:8px"></div>
+      <div class="btn-row">
+        <button class="btn ghost" data-back="menu">← 뒤로</button>
+        <button class="btn violet" id="saveFinalBtn">최종 기록 저장하기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 학생: 저장 완료 ===================== -->
+  <section id="view-saved" class="view">
+    <div class="card">
+      <h2 id="savedTitle">기초 기록이 저장되었습니다.</h2>
+      <p class="desc" id="savedDesc">3회 중 타수의 중간값을 내 기록으로 정했어요.</p>
+
+      <div class="saved-box">
+        <div class="mid" id="savedStrokesLabel">기초 타수</div>
+        <div class="big"><span id="savedStrokes">0</span>타</div>
+        <div style="height:10px"></div>
+        <div class="mid" id="savedAccuracyLabel">기초 정확도</div>
+        <div class="big"><span id="savedAccuracy">0</span>%</div>
+      </div>
+
+      <div style="height:16px"></div>
+      <div class="btn-row">
+        <button class="btn ghost" data-back="menu">메뉴로 돌아가기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 학생: 성장 결과 ===================== -->
+  <section id="view-result" class="view">
+    <div class="card" id="resultCard">
+      <div class="result-head">
+        <h2 id="resultTitle">🎉 나의 타자 성장 결과</h2>
+      </div>
+
+      <div id="resultBody" hidden>
+        <div class="compare">
+          <div class="box base">
+            <div class="label">처음 기록</div>
+            <div class="value"><span id="rBaseStrokes">0</span>타</div>
+            <div class="sub">정확도 <span id="rBaseAccuracy">0</span>%</div>
+          </div>
+          <div class="arrow">➡️</div>
+          <div class="box final">
+            <div class="label">최종 기록</div>
+            <div class="value"><span id="rFinalStrokes">0</span>타</div>
+            <div class="sub">정확도 <span id="rFinalAccuracy">0</span>%</div>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="stat-label">🚀 타수 성장</div>
+            <div class="stat-value" id="rIncrease">+0타</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">📈 향상률</div>
+            <div class="stat-value" id="rRate">0%</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">🎯 정확도 변화</div>
+            <div class="stat-value" id="rAccDelta">+0%p</div>
+          </div>
+        </div>
+
+        <div class="score-box">
+          <div class="score-label">🌱 성장점수</div>
+          <div class="score-value"><span id="rTotal">0</span>점</div>
+          <div class="score-detail" id="rScoreDetail"></div>
+        </div>
+
+        <div class="cheer" id="rCheer"></div>
+      </div>
+
+      <div id="resultEmpty" hidden>
+        <div class="hint" id="resultEmptyMsg"></div>
+      </div>
+
+      <div style="height:16px"></div>
+      <button class="btn ghost" data-back="menu">메뉴로 돌아가기</button>
+    </div>
+  </section>
+
+  <!-- ===================== 교사 관리 화면 ===================== -->
+  <?!= include('admin'); ?>
+
+</div>
+
+<!-- 로딩 화면 -->
+<div class="overlay" id="overlay" hidden>
+  <div class="spinner"></div>
+  <div class="msg" id="overlayMsg">불러오는 중이에요...</div>
+</div>
+
+<!-- 안내 메시지 -->
+<div class="toast" id="toast"></div>
+
+<?!= include('script'); ?>
+<?!= include('adminScript'); ?>
+
+</body>
+</html>
