@@ -9,7 +9,8 @@ var App = (function () {
     studentName: "",
     hasBase: false,
     hasFinal: false,
-    capture: { base: null, final: null }   // 학생이 올린 캡처 (저장 전까지만 보관)
+    // 학생이 올린 회차별 캡처 (저장 전까지만 화면에 보관)
+    capture: { base: [null, null, null], final: [null, null, null] }
   };
 
   var MAX_CAPTURE_BYTES = 5 * 1024 * 1024;
@@ -202,8 +203,8 @@ var App = (function () {
     });
   }
 
-  function pickCapture(kind, file) {
-    var prefix = kind === "base" ? "b" : "f";
+  function pickCapture(kind, trialNo, file) {
+    var prefix = (kind === "base" ? "b" : "f") + trialNo;
     if (!file) return;
 
     if (String(file.type || "").indexOf("image/") !== 0) {
@@ -224,30 +225,37 @@ var App = (function () {
         return;
       }
 
-      state.capture[kind] = { data: base64, mimeType: result.mimeType, name: file.name || "capture.jpg" };
+      state.capture[kind][trialNo - 1] = {
+        data: base64,
+        mimeType: result.mimeType,
+        name: file.name || "capture.jpg"
+      };
 
       var preview = $(prefix + "ShotPreview");
       var img = $(prefix + "ShotImg");
-      var nameEl = $(prefix + "ShotName");
       if (img) img.src = result.dataUrl;
-      if (nameEl) nameEl.textContent = Math.round(bytes / 1024) + "KB 사진이 준비됐어요";
       if (preview) preview.hidden = false;
-      toast("사진을 첨부했어요.", "success");
+      toast(trialNo + "회 사진을 넣었어요.", "success");
     }).catch(function (err) {
       overlay(false);
       toast(err.message, "error");
     });
   }
 
-  function clearCapture(kind) {
-    var prefix = kind === "base" ? "b" : "f";
-    state.capture[kind] = null;
+  function clearCapture(kind, trialNo) {
+    var prefix = (kind === "base" ? "b" : "f") + trialNo;
+    state.capture[kind][trialNo - 1] = null;
+
     var input = $(prefix + "Shot");
     if (input) input.value = "";
     var preview = $(prefix + "ShotPreview");
     if (preview) preview.hidden = true;
     var img = $(prefix + "ShotImg");
     if (img) img.removeAttribute("src");
+  }
+
+  function clearAllCaptures(kind) {
+    for (var i = 1; i <= 3; i++) clearCapture(kind, i);
   }
 
   /* ---------- 첫 화면: 학생 명단 ---------- */
@@ -370,7 +378,7 @@ var App = (function () {
         }
 
         clearTrials(prefix);
-        clearCapture(kind);
+        clearAllCaptures(kind);
         refreshState();
 
         if (res.warning) toast(res.warning, "error");
@@ -384,7 +392,7 @@ var App = (function () {
 
         $("savedTitle").textContent = label + " 기록이 저장되었습니다.";
         $("savedDesc").textContent = "3회 중 " + res.trialNo + "회 기록(타수의 중간값)이 내 " + label + " 기록이 되었어요." +
-          (res.hasCapture ? " 캡처 사진도 함께 올라갔어요. 📷" : "");
+          (res.savedShots ? " 캡처 사진 " + res.savedShots + "장도 함께 올라갔어요. 📷" : "");
         $("savedStrokesLabel").textContent = label + " 타수";
         $("savedAccuracyLabel").textContent = label + " 정확도";
         $("savedStrokes").textContent = num(res.strokes);
@@ -506,12 +514,18 @@ var App = (function () {
     on("goAdminBtn", "click", function () { showView("adminLogin"); });
     on("adminLoginBackBtn", "click", function () { showView("home"); });
 
-    // 캡처 사진 선택 / 지우기
+    // 회차별 캡처 사진 선택 / 지우기
     [["b", "base"], ["f", "final"]].forEach(function (pair) {
-      on(pair[0] + "Shot", "change", function (event) {
-        pickCapture(pair[1], event.target.files && event.target.files[0]);
-      });
-      on(pair[0] + "ShotClear", "click", function () { clearCapture(pair[1]); });
+      for (var no = 1; no <= 3; no++) {
+        (function (trialNo) {
+          on(pair[0] + trialNo + "Shot", "change", function (event) {
+            pickCapture(pair[1], trialNo, event.target.files && event.target.files[0]);
+          });
+          on(pair[0] + trialNo + "ShotClear", "click", function () {
+            clearCapture(pair[1], trialNo);
+          });
+        })(no);
+      }
     });
 
     // 숫자만 입력되도록 부드럽게 도와줍니다.

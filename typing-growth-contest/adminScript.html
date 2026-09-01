@@ -97,9 +97,11 @@
 
   function renderAwards(awards) {
     function put(nameId, valueId, award, suffix) {
-      var hasWinner = award && award.names && award.names.length;
-      $(nameId).textContent = hasWinner ? award.names.join(", ") : "-";
-      $(valueId).textContent = hasWinner ? App.num(award.value) + suffix : "기록을 마친 학생이 아직 없어요";
+      var hasWinner = award && award.name;
+      $(nameId).textContent = hasWinner ? award.name : "-";
+      $(valueId).textContent = hasWinner
+        ? App.num(award.value) + suffix + (award.tied > 1 ? " · 동점 " + award.tied + "명 중 선정" : "")
+        : "받을 수 있는 학생이 없어요";
     }
     put("awardGrowth", "awardGrowthValue", awards.growthKing, "점");
     put("awardRate", "awardRateValue", awards.rateKing, "% 향상");
@@ -139,17 +141,31 @@
       tr.appendChild(cell(value(row.accuracyScore)));
       tr.appendChild(cell(row.hasFinal ? App.num(row.totalScore) + "점" : "-", "score"));
 
-      // 캡처 사진
+      // 캡처 사진 (회차별)
       var shots = document.createElement("td");
       var shotBox = document.createElement("div");
       shotBox.className = "shot-cell";
-      [["base", "🌱 기초", row.baseShot], ["final", "🏁 최종", row.finalShot]].forEach(function (item) {
-        if (!item[2]) return;
-        var button = document.createElement("button");
-        button.className = "mini";
-        button.textContent = item[1];
-        button.addEventListener("click", function () { openCapture(row.name, item[0]); });
-        shotBox.appendChild(button);
+      [["base", "🌱", row.baseShots], ["final", "🏁", row.finalShots]].forEach(function (item) {
+        var urls = item[2] || [];
+        if (!urls.some(function (url) { return !!url; })) return;
+
+        var group = document.createElement("span");
+        group.className = "shot-group";
+        var label = document.createElement("span");
+        label.className = "shot-label";
+        label.textContent = item[1];
+        group.appendChild(label);
+
+        urls.forEach(function (url, index) {
+          if (!url) return;
+          var button = document.createElement("button");
+          button.className = "shot-num";
+          button.textContent = String(index + 1);
+          button.title = (item[0] === "base" ? "기초" : "최종") + " " + (index + 1) + "회 캡처 보기";
+          button.addEventListener("click", function () { openCapture(row.name, item[0], index + 1); });
+          group.appendChild(button);
+        });
+        shotBox.appendChild(group);
       });
       if (!shotBox.childNodes.length) {
         shots.textContent = "-";
@@ -198,12 +214,13 @@
 
   /* ---------- 캡처 사진 보기 ---------- */
 
-  function openCapture(name, kind) {
+  function openCapture(name, kind, trialNo) {
     App.overlay(true, "캡처 사진을 불러오고 있어요...");
-    App.call("apiAdminGetCapture", adminPassword, name, kind).then(function (res) {
+    App.call("apiAdminGetCapture", adminPassword, name, kind, trialNo).then(function (res) {
       App.overlay(false);
       if (!res.ok) { App.toast(res.message, "error"); return; }
-      $("shotTitle").textContent = name + " 학생 · " + (kind === "base" ? "기초" : "최종") + " 기록 캡처";
+      $("shotTitle").textContent =
+        name + " 학생 · " + (kind === "base" ? "기초" : "최종") + " " + res.trialNo + "회 캡처";
       $("shotImage").src = res.dataUrl;
       $("shotOpenBtn").href = res.url;
       $("shotModal").hidden = false;

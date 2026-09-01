@@ -71,10 +71,21 @@ const COL = {
   TOTAL: 24,         // X 성장점수(100점)
   RANK: 25,          // Y 최종 순위
   UPDATED: 26,       // Z 마지막 수정시간
-  B_SHOT: 27,        // AA 기초 캡처 (사진 주소)
-  F_SHOT: 28         // AB 최종 캡처 (사진 주소)
+  B1_SHOT: 27,       // AA 기초 1회 캡처
+  B2_SHOT: 28,       // AB 기초 2회 캡처
+  B3_SHOT: 29,       // AC 기초 3회 캡처
+  F1_SHOT: 30,       // AD 최종 1회 캡처
+  F2_SHOT: 31,       // AE 최종 2회 캡처
+  F3_SHOT: 32        // AF 최종 3회 캡처
 };
-const RECORD_LAST_COL = 28;
+const RECORD_LAST_COL = 32;
+
+/** 캡처 열 번호 (kind 별 1~3회) */
+function shotColumns_(kind) {
+  return kind === "base"
+    ? [COL.B1_SHOT, COL.B2_SHOT, COL.B3_SHOT]
+    : [COL.F1_SHOT, COL.F2_SHOT, COL.F3_SHOT];
+}
 
 const RECORD_HEADERS = [
   "학생명",
@@ -89,7 +100,8 @@ const RECORD_HEADERS = [
   "증가 타수", "향상률(%)", "정확도 변화(%p)",
   "증가량 점수", "향상률 점수", "정확도 점수",
   "성장점수", "최종 순위", "마지막 수정시간",
-  "기초 캡처", "최종 캡처"
+  "기초1 캡처", "기초2 캡처", "기초3 캡처",
+  "최종1 캡처", "최종2 캡처", "최종3 캡처"
 ];
 
 const SAMPLE_STUDENTS = ["김하늘", "이준서", "박서윤", "정민재", "최유나"];
@@ -316,8 +328,16 @@ function readAllRecords_(sheet) {
       finalStrokes: row[COL.FS - 1],
       finalAccuracy: row[COL.FA - 1],
       updatedAt: row[COL.UPDATED - 1],
-      baseShot: String(row[COL.B_SHOT - 1] || ""),
-      finalShot: String(row[COL.F_SHOT - 1] || "")
+      baseShots: [
+        String(row[COL.B1_SHOT - 1] || ""),
+        String(row[COL.B2_SHOT - 1] || ""),
+        String(row[COL.B3_SHOT - 1] || "")
+      ],
+      finalShots: [
+        String(row[COL.F1_SHOT - 1] || ""),
+        String(row[COL.F2_SHOT - 1] || ""),
+        String(row[COL.F3_SHOT - 1] || "")
+      ]
     });
   });
   return list;
@@ -361,14 +381,36 @@ function validateCapture_(capture) {
 }
 
 /** 캡처를 드라이브에 저장하고 사진 주소를 돌려줍니다. */
-function storeCapture_(studentName, kind, capture) {
-  const label = kind === "base" ? "기초" : "최종";
+function storeCapture_(studentName, kind, trialNo, capture) {
+  const label = (kind === "base" ? "기초" : "최종") + trialNo + "회";
   const bytes = Utilities.base64Decode(capture.data);
   const extension = String(capture.mimeType).indexOf("png") > -1 ? "png" : "jpg";
   const fileName = studentName + "_" + label + "_" + nowText_().replace(/[^0-9]/g, "") + "." + extension;
   const blob = Utilities.newBlob(bytes, capture.mimeType, fileName);
   const file = getCaptureFolder_().createFile(blob);
   return file.getUrl();
+}
+
+/**
+ * 1~3회 캡처를 한꺼번에 검사합니다.
+ * captures = [{...}|null, {...}|null, {...}|null]
+ */
+function validateCaptures_(captures) {
+  const list = captures || [];
+  const cleaned = [null, null, null];
+  let count = 0;
+
+  for (let i = 0; i < 3; i++) {
+    const one = list[i];
+    if (!one || !one.data) continue;
+    const check = validateCapture_(one);
+    if (!check.ok) {
+      return { ok: false, message: (i + 1) + "회 사진: " + check.message };
+    }
+    cleaned[i] = one;
+    count++;
+  }
+  return { ok: true, captures: cleaned, count: count };
 }
 
 /** 사진 주소에서 파일 ID 를 꺼냅니다. */
@@ -574,26 +616,41 @@ function isSameRankKey_(a, b) {
     && a.rate === b.rate;
 }
 
-/** 시상 결과(같은 학생이 여러 상을 받을 수 있습니다) */
+/**
+ * 시상 결과 — 한 학생은 한 가지 상만 받습니다.
+ *
+ * 아래 순서대로 뽑고, 이미 상을 받은 학생은 다음 상 후보에서 빠집니다.
+ *   ① 🏆 타자 성장왕 (성장점수)  ② 🌱 폭풍 성장상 (향상률)
+ *   ③ 🎯 정확 타자상 (최종 정확도) ④ ⚡ 번개 타자상 (최종 타수)
+ * 동점이면 성장점수 → 최종 정확도 → 증가 타수 → 향상률 순으로 한 명을 정합니다.
+ */
 function computeAwards_(results) {
   const completed = (results || []).filter(function (r) { return r.hasFinal; });
-  function best(valueOf) {
-    if (!completed.length) return { names: [], value: null };
-    const top = completed.reduce(function (max, r) {
+  const taken = {};
+
+  function pick(valueOf) {
+    const pool = completed.filter(function (r) { return !taken[r.name]; });
+    if (!pool.length) return { name: "", value: null, tied: 0 };
+
+    const top = pool.reduce(function (max, r) {
       const v = valueOf(r);
       return v > max ? v : max;
     }, -Infinity);
-    return {
-      names: completed.filter(function (r) { return valueOf(r) === top; })
-        .map(function (r) { return r.name; }),
-      value: top
-    };
+
+    const tiedList = pool
+      .filter(function (r) { return valueOf(r) === top; })
+      .sort(compareForRank_);
+
+    const winner = tiedList[0];
+    taken[winner.name] = true;
+    return { name: winner.name, value: top, tied: tiedList.length };
   }
+
   return {
-    growthKing: best(function (r) { return r.totalScore; }),
-    rateKing: best(function (r) { return r.rate; }),
-    accuracyKing: best(function (r) { return r.finalAccuracy; }),
-    speedKing: best(function (r) { return r.finalStrokes; })
+    growthKing: pick(function (r) { return r.totalScore; }),
+    rateKing: pick(function (r) { return r.rate; }),
+    accuracyKing: pick(function (r) { return r.finalAccuracy; }),
+    speedKing: pick(function (r) { return r.finalStrokes; })
   };
 }
 
@@ -668,15 +725,15 @@ function apiGetStudentState(name) {
   });
 }
 
-function apiSaveBase(name, trials, capture) {
+function apiSaveBase(name, trials, captures) {
   return safe_(function () {
-    return saveRecord_(name, trials, "base", capture);
+    return saveRecord_(name, trials, "base", captures);
   });
 }
 
-function apiSaveFinal(name, trials, capture) {
+function apiSaveFinal(name, trials, captures) {
   return safe_(function () {
-    return saveRecord_(name, trials, "final", capture);
+    return saveRecord_(name, trials, "final", captures);
   });
 }
 
@@ -684,7 +741,7 @@ function apiSaveFinal(name, trials, capture) {
  * 기초/최종 기록 저장 (학생용).
  * 이미 등록된 기록은 학생이 덮어쓸 수 없습니다. (교사만 수정 가능)
  */
-function saveRecord_(name, trials, kind, capture) {
+function saveRecord_(name, trials, kind, captures) {
   const student = String(name || "").trim();
   const label = kind === "base" ? "기초 기록" : "최종 기록";
 
@@ -696,10 +753,10 @@ function saveRecord_(name, trials, kind, capture) {
   const check = validateTrials_(trials, label);
   if (!check.ok) return { ok: false, message: check.message };
 
-  const shot = validateCapture_(capture);
-  if (!shot.ok) return { ok: false, message: shot.message };
-  if (REQUIRE_SCREENSHOT && shot.empty) {
-    return { ok: false, message: "한컴타자 결과 화면 캡처를 함께 올려주세요." };
+  const shots = validateCaptures_(captures);
+  if (!shots.ok) return { ok: false, message: shots.message };
+  if (REQUIRE_SCREENSHOT && shots.count < 3) {
+    return { ok: false, message: "1회 · 2회 · 3회 결과 화면 캡처를 모두 올려주세요." };
   }
 
   return withLock_(function () {
@@ -743,10 +800,14 @@ function saveRecord_(name, trials, kind, capture) {
     // 사진은 기록을 저장한 뒤에 올립니다.
     // (드라이브 권한 문제로 사진이 실패해도 기록은 지켜집니다)
     let warning = "";
-    if (!shot.empty) {
+    let savedShots = 0;
+    const columns = shotColumns_(kind);
+    for (let i = 0; i < 3; i++) {
+      if (!shots.captures[i]) continue;
       try {
-        const url = storeCapture_(student, kind, capture);
-        sheet.getRange(row, kind === "base" ? COL.B_SHOT : COL.F_SHOT).setValue(url);
+        const url = storeCapture_(student, kind, i + 1, shots.captures[i]);
+        sheet.getRange(row, columns[i]).setValue(url);
+        savedShots++;
       } catch (err) {
         warning = "기록은 저장했지만 사진은 저장하지 못했어요. 선생님께 알려주세요.";
       }
@@ -757,7 +818,8 @@ function saveRecord_(name, trials, kind, capture) {
     return {
       ok: true,
       warning: warning,
-      hasCapture: !shot.empty && !warning,
+      savedShots: savedShots,
+      hasCapture: savedShots > 0,
       kind: kind,
       strokes: median.strokes,
       accuracy: median.accuracy,
@@ -855,8 +917,8 @@ function buildAdminData_() {
   results.forEach(function (r, i) {
     r.baseTrials = records[i].baseTrials;
     r.finalTrials = records[i].finalTrials;
-    r.baseShot = records[i].baseShot;
-    r.finalShot = records[i].finalShot;
+    r.baseShots = records[i].baseShots;
+    r.finalShots = records[i].finalShots;
     byName[r.name] = r;
   });
 
@@ -918,7 +980,8 @@ function emptyResult_(name) {
     baseStrokes: null, baseAccuracy: null, finalStrokes: null, finalAccuracy: null,
     increase: null, rate: null, accuracyDelta: null,
     increaseScore: null, rateScore: null, accuracyScore: null,
-    totalScore: null, rank: null, updatedAt: "", baseShot: "", finalShot: "",
+    totalScore: null, rank: null, updatedAt: "",
+    baseShots: ["", "", ""], finalShots: ["", "", ""],
     baseTrials: [{ strokes: "", accuracy: "" }, { strokes: "", accuracy: "" }, { strokes: "", accuracy: "" }],
     finalTrials: [{ strokes: "", accuracy: "" }, { strokes: "", accuracy: "" }, { strokes: "", accuracy: "" }]
   };
@@ -966,14 +1029,13 @@ function apiAdminSaveRecord(password, name, payload) {
       const row = ensureRecordRow_(sheet, student);
 
       // 기록을 비우면 그 구간의 캡처 사진도 함께 정리합니다.
-      if (!baseCheck) {
-        trashCapture_(sheet.getRange(row, COL.B_SHOT).getValue());
-        sheet.getRange(row, COL.B_SHOT).setValue("");
-      }
-      if (!finalCheck) {
-        trashCapture_(sheet.getRange(row, COL.F_SHOT).getValue());
-        sheet.getRange(row, COL.F_SHOT).setValue("");
-      }
+      [["base", baseCheck], ["final", finalCheck]].forEach(function (pair) {
+        if (pair[1]) return;
+        shotColumns_(pair[0]).forEach(function (column) {
+          trashCapture_(sheet.getRange(row, column).getValue());
+          sheet.getRange(row, column).setValue("");
+        });
+      });
 
       writeSection_(sheet, row, COL.B1S, baseCheck);
       writeSection_(sheet, row, COL.F1S, finalCheck);
@@ -1024,8 +1086,9 @@ function apiAdminDeleteRecord(password, name) {
       const sheet = getSheet_(SHEET_RECORDS);
       const row = findRecordRow_(sheet, student);
       if (!row) return { ok: false, message: "삭제할 기록이 없습니다." };
-      trashCapture_(sheet.getRange(row, COL.B_SHOT).getValue());
-      trashCapture_(sheet.getRange(row, COL.F_SHOT).getValue());
+      shotColumns_("base").concat(shotColumns_("final")).forEach(function (column) {
+        trashCapture_(sheet.getRange(row, column).getValue());
+      });
       sheet.deleteRow(row);
       return { ok: true, data: buildAdminData_() };
     });
@@ -1033,7 +1096,7 @@ function apiAdminDeleteRecord(password, name) {
 }
 
 /** 캡처 사진을 화면에서 볼 수 있게 그림 데이터를 보냅니다. */
-function apiAdminGetCapture(password, name, kind) {
+function apiAdminGetCapture(password, name, kind, trialNo) {
   return safe_(function () {
     if (!checkPassword_(password)) return { ok: false, message: "비밀번호가 올바르지 않습니다." };
 
@@ -1041,7 +1104,8 @@ function apiAdminGetCapture(password, name, kind) {
     const row = findRecordRow_(sheet, String(name || "").trim());
     if (!row) return { ok: false, message: "기록을 찾을 수 없습니다." };
 
-    const url = String(sheet.getRange(row, kind === "base" ? COL.B_SHOT : COL.F_SHOT).getValue() || "");
+    const index = Math.min(3, Math.max(1, Number(trialNo) || 1));
+    const url = String(sheet.getRange(row, shotColumns_(kind)[index - 1]).getValue() || "");
     const id = captureIdFromUrl_(url);
     if (!id) return { ok: false, message: "올라온 캡처 사진이 없습니다." };
 
@@ -1051,6 +1115,7 @@ function apiAdminGetCapture(password, name, kind) {
       ok: true,
       name: name,
       kind: kind,
+      trialNo: index,
       url: url,
       dataUrl: "data:" + blob.getContentType() + ";base64," + Utilities.base64Encode(blob.getBytes())
     };
@@ -1066,16 +1131,17 @@ function apiAdminGetCsv(password) {
       "순위", "이름", "기초 타수", "기초 정확도", "최종 타수", "최종 정확도",
       "증가 타수", "향상률(%)", "정확도 변화(%p)",
       "증가량 점수", "향상률 점수", "정확도 점수", "성장점수", "마지막 수정시간",
-      "기초 캡처", "최종 캡처"
+      "기초1 캡처", "기초2 캡처", "기초3 캡처",
+      "최종1 캡처", "최종2 캡처", "최종3 캡처"
     ];
     const lines = [header.map(csvCell_).join(",")];
     data.rows.forEach(function (r) {
       lines.push([
         r.rank, r.name, r.baseStrokes, r.baseAccuracy, r.finalStrokes, r.finalAccuracy,
         r.increase, r.rate, r.accuracyDelta,
-        r.increaseScore, r.rateScore, r.accuracyScore, r.totalScore, r.updatedAt,
-        r.baseShot, r.finalShot
-      ].map(csvCell_).join(","));
+        r.increaseScore, r.rateScore, r.accuracyScore, r.totalScore, r.updatedAt
+      ].concat(r.baseShots || ["", "", ""]).concat(r.finalShots || ["", "", ""])
+        .map(csvCell_).join(","));
     });
     return {
       ok: true,

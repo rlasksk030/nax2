@@ -224,12 +224,14 @@ section("4. 성장 계산 · 점수 정규화 · 순위");
   eq("최종 기록이 없으면 성장점수 없음", by["미등록"].totalScore, null);
   eq("기초 기록만 있으면 hasBase=true", by["미등록"].hasBase, true);
 
-  // 시상
+  // 시상 — 한 학생은 한 가지 상만 받습니다
   const awards = api.computeAwards_(results);
-  eq("🏆 타자 성장왕 = 박서윤", awards.growthKing.names.join(","), "박서윤");
-  eq("🌱 폭풍 성장상 = 박서윤(75%)", awards.rateKing.names.join(",") + "/" + awards.rateKing.value, "박서윤/75");
-  eq("🎯 정확 타자상 = 정민재(99%)", awards.accuracyKing.names.join(",") + "/" + awards.accuracyKing.value, "정민재/99");
-  eq("⚡ 번개 타자상 = 이준서(330타)", awards.speedKing.names.join(",") + "/" + awards.speedKing.value, "이준서/330");
+  eq("🏆 타자 성장왕 = 박서윤", awards.growthKing.name, "박서윤");
+  eq("🌱 폭풍 성장상: 박서윤은 이미 받았으므로 다음 학생에게", awards.rateKing.name, "김하늘");
+  eq("🎯 정확 타자상 = 정민재(99%)", awards.accuracyKing.name + "/" + awards.accuracyKing.value, "정민재/99");
+  eq("⚡ 번개 타자상 = 이준서(330타)", awards.speedKing.name + "/" + awards.speedKing.value, "이준서/330");
+  const winners = [awards.growthKing.name, awards.rateKing.name, awards.accuracyKing.name, awards.speedKing.name];
+  eq("네 상의 수상자가 모두 다른 학생", new Set(winners).size, 4);
 }
 
 /* ============================================================
@@ -268,7 +270,7 @@ section("5. 점수 상한 · 0으로 나누기 · 예외 상황");
   const empty = api.computeResults_([]);
   eq("빈 명단이면 결과도 빈 배열", empty.length, 0);
   const emptyAwards = api.computeAwards_([]);
-  eq("기록이 없으면 시상자도 없음", emptyAwards.growthKing.names.length, 0);
+  eq("기록이 없으면 시상자도 없음", emptyAwards.growthKing.name, "");
 
   // 학생 한 명뿐일 때 → 정규화 기준이 자기 자신
   const solo = api.computeResults_([
@@ -713,74 +715,152 @@ section("12. 응답 전송 안전성");
 /* ============================================================
    13. 캡처 사진 첨부
    ============================================================ */
-section("13. 학생 캡처 사진 첨부");
+section("13. 회차별 캡처 사진 첨부");
 {
   const { api, spreadsheet, drive } = loadApp();
   api.initializeSheets();
   const sheet = spreadsheet.getSheetByName("기록");
 
-  const png = { data: Buffer.from("가짜 이미지 데이터").toString("base64"), mimeType: "image/png", name: "캡처.png" };
+  function png(label) {
+    return {
+      data: Buffer.from("가짜 이미지 " + label).toString("base64"),
+      mimeType: "image/png",
+      name: label + ".png"
+    };
+  }
 
   // 사진 없이도 저장된다 (기본은 선택 사항)
   const noShot = api.apiSaveBase("이준서", trials([300, 96], [300, 96], [300, 96]));
   eq("사진 없이 저장 성공", noShot.ok, true);
-  eq("사진 없이 저장하면 캡처 표시 없음", noShot.hasCapture, false);
+  eq("사진 없이 저장하면 올라간 사진 0장", noShot.savedShots, 0);
 
-  // 사진과 함께 저장
-  const withShot = api.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]), png);
-  eq("사진과 함께 저장 성공", withShot.ok, true);
-  eq("사진 첨부 표시", withShot.hasCapture, true);
+  // 1회 · 3회만 사진을 넣는 경우 (일부만 넣어도 된다)
+  const some = api.apiSaveBase("최유나", trials([150, 92], [150, 92], [150, 92]), [png("유나1"), null, png("유나3")]);
+  eq("일부 회차만 사진 첨부 성공", some.ok, true);
+  eq("올라간 사진 2장", some.savedShots, 2);
+  const yuna = api.readAllRecords_(sheet).filter(function (r) { return r.name === "최유나"; })[0];
+  check("1회 사진 저장", /drive\.google\.com/.test(yuna.baseShots[0]), yuna.baseShots[0]);
+  eq("2회는 비어 있음", yuna.baseShots[1], "");
+  check("3회 사진 저장", /drive\.google\.com/.test(yuna.baseShots[2]), yuna.baseShots[2]);
 
-  const row = api.readAllRecords_(sheet).filter(function (r) { return r.name === "김하늘"; })[0];
-  check("기록 시트에 사진 주소 저장", /drive\.google\.com/.test(row.baseShot), row.baseShot);
-  eq("드라이브에 파일 1개 생성", Object.keys(drive.files).length, 1);
+  // 3회 모두 첨부
+  const withShots = api.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]),
+    [png("하늘1"), png("하늘2"), png("하늘3")]);
+  eq("3회 모두 첨부 성공", withShots.ok, true);
+  eq("올라간 사진 3장", withShots.savedShots, 3);
+
+  const hanulRow = api.readAllRecords_(sheet).filter(function (r) { return r.name === "김하늘"; })[0];
+  check("기초 1~3회 사진이 각각 다른 주소",
+    new Set(hanulRow.baseShots).size === 3, JSON.stringify(hanulRow.baseShots));
+  eq("드라이브 파일 총 5개(2 + 3)", Object.keys(drive.files).length, 5);
   check("캡처 폴더 이름", !!drive.folders["타자 성장대회 캡처"], Object.keys(drive.folders).join(","));
 
-  // 잘못된 파일 / 너무 큰 파일
+  // 최종 기록도 회차별로
+  const finalShots = api.apiSaveFinal("김하늘", trials([240, 96], [247, 97], [252, 98]),
+    [png("최종1"), png("최종2"), png("최종3")]);
+  eq("최종 기록도 회차별 첨부", finalShots.savedShots, 3);
+  const afterFinal = api.readAllRecords_(sheet).filter(function (r) { return r.name === "김하늘"; })[0];
+  check("최종 1~3회 사진 저장", afterFinal.finalShots.every(function (u) { return !!u; }),
+    JSON.stringify(afterFinal.finalShots));
+  check("기초 사진은 그대로", afterFinal.baseShots.every(function (u) { return !!u; }));
+
+  // 잘못된 파일 / 너무 큰 파일 — 몇 회인지 알려준다
   const wrongType = api.apiSaveBase("박서윤", trials([120, 90], [120, 90], [120, 90]),
-    { data: "AAAA", mimeType: "text/plain", name: "메모.txt" });
+    [null, { data: "AAAA", mimeType: "text/plain", name: "메모.txt" }, null]);
   eq("사진이 아닌 파일 거부", wrongType.ok, false);
-  check("사진 형식 안내", /사진 파일/.test(wrongType.message), wrongType.message);
+  check("몇 회 사진이 문제인지 안내", /^2회 사진/.test(wrongType.message), wrongType.message);
 
   const huge = api.apiSaveBase("박서윤", trials([120, 90], [120, 90], [120, 90]),
-    { data: "A".repeat(8 * 1024 * 1024), mimeType: "image/jpeg", name: "큰사진.jpg" });
+    [{ data: "A".repeat(8 * 1024 * 1024), mimeType: "image/jpeg", name: "큰사진.jpg" }, null, null]);
   eq("너무 큰 사진 거부", huge.ok, false);
   check("사진 크기 안내", /너무 커요/.test(huge.message), huge.message);
   check("거부된 뒤에도 기록이 저장되지 않음",
     !api.readAllRecords_(sheet).some(function (r) { return r.name === "박서윤" && r.baseStrokes; }));
 
-  // 교사만 캡처를 볼 수 있다
-  eq("비밀번호 없이 캡처 열람 거부", api.apiAdminGetCapture("틀림", "김하늘", "base").ok, false);
-  const shot = api.apiAdminGetCapture(api.ADMIN_PASSWORD, "김하늘", "base");
-  eq("교사는 캡처 열람 가능", shot.ok, true);
-  check("그림 데이터가 전달됨", /^data:image\/png;base64,/.test(shot.dataUrl), String(shot.dataUrl).slice(0, 40));
-  eq("캡처 없는 학생은 안내", api.apiAdminGetCapture(api.ADMIN_PASSWORD, "이준서", "base").ok, false);
+  // 교사만 회차를 골라 볼 수 있다
+  eq("비밀번호 없이 캡처 열람 거부", api.apiAdminGetCapture("틀림", "김하늘", "base", 1).ok, false);
+  const shot2 = api.apiAdminGetCapture(api.ADMIN_PASSWORD, "김하늘", "base", 2);
+  eq("교사는 2회 캡처 열람 가능", shot2.ok, true);
+  eq("응답에 회차 표시", shot2.trialNo, 2);
+  check("그림 데이터가 전달됨", /^data:image\/png;base64,/.test(shot2.dataUrl), String(shot2.dataUrl).slice(0, 40));
+  eq("사진이 없는 회차는 안내", api.apiAdminGetCapture(api.ADMIN_PASSWORD, "최유나", "base", 2).ok, false);
+  eq("사진이 없는 학생도 안내", api.apiAdminGetCapture(api.ADMIN_PASSWORD, "이준서", "base", 1).ok, false);
 
-  // 관리 화면 데이터에 캡처 여부 포함
+  // 관리 화면 데이터 · CSV
   const data = api.apiAdminGetData(api.ADMIN_PASSWORD).data;
   const hanul = data.rows.filter(function (r) { return r.name === "김하늘"; })[0];
-  check("관리 표에 캡처 주소 포함", !!hanul.baseShot, JSON.stringify(hanul.baseShot));
-  check("CSV 에 캡처 열 포함",
-    api.apiAdminGetCsv(api.ADMIN_PASSWORD).csv.split("\r\n")[0].indexOf("기초 캡처") > -1);
+  eq("관리 표에 기초 사진 3칸", hanul.baseShots.length, 3);
+  check("관리 표에 사진 주소 포함", hanul.baseShots.every(function (u) { return !!u; }));
+  const header = api.apiAdminGetCsv(api.ADMIN_PASSWORD).csv.split("\r\n")[0];
+  check("CSV 에 회차별 캡처 열 6개", ["기초1 캡처", "기초2 캡처", "기초3 캡처",
+    "최종1 캡처", "최종2 캡처", "최종3 캡처"].every(function (h) { return header.indexOf(h) > -1; }), header);
 
-  // 교사가 기록을 비우면 사진도 휴지통으로
-  const fileId = Object.keys(drive.files)[0];
+  // 교사가 기록을 비우면 그 구간 사진 3장이 모두 휴지통으로
+  const baseIds = hanulRow.baseShots.map(function (url) { return url.match(/[-\w]{25,}/)[0]; });
   api.apiAdminSaveRecord(api.ADMIN_PASSWORD, "김하늘", {
     base: trials(["", ""], ["", ""], ["", ""]),
     final: null
   });
-  eq("기록을 비우면 사진도 휴지통", drive.files[fileId].trashed, true);
+  check("기초를 비우면 기초 사진 3장 모두 휴지통",
+    baseIds.every(function (id) { return drive.files[id].trashed; }),
+    JSON.stringify(baseIds.map(function (id) { return drive.files[id].trashed; })));
 
   // 드라이브 저장이 실패해도 기록은 지켜진다
   const { api: api2, spreadsheet: ss2, drive: drive2 } = loadApp();
   api2.initializeSheets();
   drive2.failCreate = true;
-  const failed = api2.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]), png);
+  const failed = api2.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]),
+    [png("실패1"), png("실패2"), png("실패3")]);
   eq("사진 저장이 실패해도 기록은 저장", failed.ok, true);
+  eq("올라간 사진 0장", failed.savedShots, 0);
   check("사진 실패를 알려줌", /사진은 저장하지 못했어요/.test(failed.warning), failed.warning);
   const kept = api2.readAllRecords_(ss2.getSheetByName("기록"))
     .filter(function (r) { return r.name === "김하늘"; })[0];
   eq("기록 값은 정상 저장", kept.baseStrokes, 184);
+}
+
+/* ============================================================
+   14. 시상 — 한 학생은 한 가지 상만
+   ============================================================ */
+section("14. 중복 수상 없음");
+{
+  const { api } = loadApp();
+
+  // 한 학생이 모든 항목에서 1등인 극단적인 경우
+  const results = api.computeResults_([
+    { name: "독주", baseStrokes: 100, baseAccuracy: 90, finalStrokes: 400, finalAccuracy: 100 },
+    { name: "둘째", baseStrokes: 200, baseAccuracy: 92, finalStrokes: 260, finalAccuracy: 97 },
+    { name: "셋째", baseStrokes: 300, baseAccuracy: 95, finalStrokes: 330, finalAccuracy: 96 },
+    { name: "넷째", baseStrokes: 150, baseAccuracy: 93, finalStrokes: 160, finalAccuracy: 94 }
+  ]);
+  const awards = api.computeAwards_(results);
+  const winners = [awards.growthKing.name, awards.rateKing.name, awards.accuracyKing.name, awards.speedKing.name];
+
+  eq("모든 항목 1등이어도 성장왕 하나만", awards.growthKing.name, "독주");
+  check("독주는 다른 상을 받지 않음",
+    winners.filter(function (n) { return n === "독주"; }).length === 1, winners.join(","));
+  eq("수상자 4명이 서로 다름", new Set(winners).size, 4, winners.join(","));
+  check("모든 상에 수상자가 있음", winners.every(function (n) { return !!n; }), winners.join(","));
+
+  // 기록을 마친 학생이 상 개수보다 적을 때
+  const few = api.computeAwards_(api.computeResults_([
+    { name: "가", baseStrokes: 100, baseAccuracy: 90, finalStrokes: 150, finalAccuracy: 97 },
+    { name: "나", baseStrokes: 200, baseAccuracy: 92, finalStrokes: 210, finalAccuracy: 95 }
+  ]));
+  eq("2명뿐이면 앞의 두 상만 수여", [few.growthKing.name, few.rateKing.name].join(","), "가,나");
+  eq("남은 상은 수상자 없음", few.accuracyKing.name + few.speedKing.name, "");
+  eq("수상자 없는 상은 값도 없음", few.speedKing.value, null);
+
+  // 동점이면 한 명만 뽑고, 동점 인원을 알려준다
+  const tie = api.computeAwards_(api.computeResults_([
+    { name: "쌍둥이1", baseStrokes: 150, baseAccuracy: 95, finalStrokes: 200, finalAccuracy: 97 },
+    { name: "쌍둥이2", baseStrokes: 150, baseAccuracy: 95, finalStrokes: 200, finalAccuracy: 97 }
+  ]));
+  eq("동점이어도 성장왕은 한 명", tie.growthKing.name === "쌍둥이1" || tie.growthKing.name === "쌍둥이2", true);
+  eq("동점 인원 수를 알려줌", tie.growthKing.tied, 2);
+  check("나머지 한 명은 다음 상을 받음",
+    tie.rateKing.name && tie.rateKing.name !== tie.growthKing.name,
+    tie.growthKing.name + " / " + tie.rateKing.name);
 }
 
 /* ---------------- 결과 요약 ---------------- */
