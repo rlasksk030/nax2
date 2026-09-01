@@ -107,10 +107,36 @@ function onOpen() {
       .createMenu("⌨️ 타자 성장대회")
       .addItem("① 시트 초기화 (처음 1회)", "initializeSheets")
       .addItem("② 순위 다시 계산", "menuRecalculate_")
+      .addItem("③ 기록 상태 점검", "menuDiagnose_")
       .addToUi();
   } catch (err) {
     // 시트가 아닌 곳에서 실행되면 무시합니다.
   }
+}
+
+/** 웹앱이 시트를 제대로 읽는지 시트 메뉴에서 바로 확인합니다. */
+function menuDiagnose_() {
+  const raw = apiAdminGetData(ADMIN_PASSWORD);
+  const data = JSON.parse(raw);
+  const ui = SpreadsheetApp.getUi();
+
+  if (!data.ok) {
+    ui.alert("기록을 읽지 못했습니다.\n\n" + data.message);
+    return;
+  }
+
+  const d = data.data.diagnostics;
+  const s = data.data.summary;
+  ui.alert(
+    "기록 상태 점검 결과\n\n" +
+    "스프레드시트 : " + d.spreadsheet + "\n" +
+    "시트 목록 : " + d.sheets + "\n" +
+    "학생명단 : " + d.roster + "명\n" +
+    "기록 시트 : " + d.recordRows + "행\n\n" +
+    "기초 기록 완료 : " + s.baseDone + "명\n" +
+    "최종 기록 완료 : " + s.finalDone + "명\n\n" +
+    "여기 숫자가 정상인데 웹앱에서만 안 보이면, 코드를 새 버전으로 다시 배포해주세요."
+  );
 }
 
 function menuRecalculate_() {
@@ -948,10 +974,31 @@ function withLock_(fn) {
   }
 }
 
+/**
+ * 모든 응답을 JSON 문자열로 만들어 돌려줍니다.
+ *
+ * google.script.run 은 큰 중첩 객체를 브라우저로 옮기다 실패하면 조용히 null 을 보냅니다.
+ * (화면에는 "Cannot read properties of null" 로 보입니다.)
+ * 문자열은 항상 안전하게 전달되므로, 서버는 문자열로 보내고 화면에서 다시 객체로 읽습니다.
+ */
 function safe_(fn) {
+  let payload;
   try {
-    return fn();
+    payload = fn();
   } catch (err) {
-    return { ok: false, message: (err && err.message) ? err.message : "알 수 없는 오류가 발생했습니다." };
+    payload = { ok: false, message: (err && err.message) ? err.message : "알 수 없는 오류가 발생했습니다." };
+  }
+
+  if (payload === undefined || payload === null) {
+    payload = { ok: false, message: "서버가 결과를 만들지 못했습니다. 잠시 후 다시 시도해주세요." };
+  }
+
+  try {
+    return JSON.stringify(payload);
+  } catch (err) {
+    return JSON.stringify({
+      ok: false,
+      message: "결과를 보내는 중 문제가 생겼습니다: " + ((err && err.message) || "알 수 없는 오류")
+    });
   }
 }

@@ -24,12 +24,39 @@ const EXPORTS = [
   "apiAdminSaveRecord", "apiAdminDeleteRecord", "apiAdminGetCsv"
 ];
 
+/** api* 함수는 JSON 문자열을 돌려주므로, 테스트에서는 객체로 바꿔 씁니다. */
+const transportProblems = [];
+
 function loadApp() {
   const sandbox = createSandbox();
   const context = vm.createContext(sandbox.globals);
   vm.runInContext(code, context, { filename: "Code.gs" });
   vm.runInContext("globalThis.__api = { " + EXPORTS.join(", ") + " };", context);
-  return { api: context.__api, spreadsheet: sandbox.spreadsheet };
+
+  const source = context.__api;
+  const api = {};
+  Object.keys(source).forEach(function (key) {
+    const value = source[key];
+    if (typeof value !== "function" || key.indexOf("api") !== 0) {
+      api[key] = value;
+      return;
+    }
+    api[key] = function () {
+      const raw = value.apply(null, arguments);
+      if (typeof raw !== "string") {
+        transportProblems.push(key + " 이 문자열이 아닌 값을 돌려줌: " + typeof raw);
+        return raw;
+      }
+      try {
+        return JSON.parse(raw);
+      } catch (err) {
+        transportProblems.push(key + " 응답을 JSON 으로 읽을 수 없음");
+        return null;
+      }
+    };
+  });
+
+  return { api: api, rawApi: source, spreadsheet: sandbox.spreadsheet };
 }
 
 /* ---------------- 아주 작은 테스트 도구 ---------------- */
@@ -629,6 +656,58 @@ section("11. 등록 후 학생 수정 차단 · 관리 화면 진단 정보");
   eq("진단: 학생명단 인원 수", data.diagnostics.roster, 5);
   eq("진단: 기록 시트 행 수", data.diagnostics.recordRows, 1);
   check("진단: 시트 이름 목록", data.diagnostics.sheets.indexOf("기록") > -1, data.diagnostics.sheets);
+}
+
+/* ============================================================
+   12. 서버 → 화면 전송 (google.script.run 이 null 을 보내지 않도록)
+   ============================================================ */
+section("12. 응답 전송 안전성");
+{
+  const { api, rawApi, spreadsheet } = loadApp();
+  api.initializeSheets();
+  api.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]));
+  api.apiSaveFinal("김하늘", trials([240, 96], [247, 97], [252, 98]));
+  api.apiSaveBase("이준서", trials([300, 96], [300, 96], [300, 96]));
+
+  // 모든 api 함수는 JSON 문자열을 돌려줘야 합니다.
+  const calls = [
+    ["apiGetStudents"],
+    ["apiGetStudentState", "김하늘"],
+    ["apiGetMyResult", "김하늘"],
+    ["apiAdminLogin", "1234"],
+    ["apiAdminGetData", "1234"],
+    ["apiAdminRecalculate", "1234"],
+    ["apiAdminGetCsv", "1234"]
+  ];
+  calls.forEach(function (c) {
+    const raw = rawApi[c[0]].apply(null, c.slice(1));
+    check(c[0] + " 이 JSON 문자열을 돌려줌", typeof raw === "string", typeof raw);
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (err) { parsed = null; }
+    check(c[0] + " 응답이 정상적으로 읽힘(null 아님)", parsed !== null && parsed.ok === true,
+      String(raw).slice(0, 80));
+  });
+
+  // 시트에 날짜/이상한 값이 들어 있어도 관리 데이터가 깨지지 않아야 합니다.
+  const sheet = spreadsheet.getSheetByName("기록");
+  sheet.getRange(2, api.COL.UPDATED).setValue(new Date(2026, 2, 5, 9, 30));   // 날짜 객체
+  sheet.getRange(3, api.COL.B1S).setValue("측정안함");                        // 글자
+  const rawAdmin = rawApi.apiAdminGetData("1234");
+  check("날짜·글자가 섞여도 JSON 문자열로 전달됨", typeof rawAdmin === "string", typeof rawAdmin);
+  const admin = JSON.parse(rawAdmin);
+  eq("날짜·글자가 섞여도 조회 성공", admin.ok, true);
+  eq("학생 수는 그대로 5명", admin.data.rows.length, 5);
+  check("이상한 값이 있어도 점수가 NaN 이 되지 않음",
+    admin.data.rows.every(function (r) {
+      return r.totalScore === null || isFinite(r.totalScore);
+    }), JSON.stringify(admin.data.rows.map(function (r) { return r.totalScore; })));
+
+  // 학생 저장 응답도 같은 방식
+  const rawSave = rawApi.apiSaveBase("박서윤", trials([120, 90], [120, 90], [120, 90]));
+  check("학생 저장 응답도 JSON 문자열", typeof rawSave === "string", typeof rawSave);
+  eq("학생 저장 응답이 정상", JSON.parse(rawSave).ok, true);
+
+  check("전송 형식 문제 없음", transportProblems.length === 0, transportProblems.join(" / "));
 }
 
 /* ---------------- 결과 요약 ---------------- */

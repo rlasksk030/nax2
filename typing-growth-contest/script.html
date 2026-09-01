@@ -91,7 +91,21 @@ var App = (function () {
     var args = Array.prototype.slice.call(arguments, 1);
     return new Promise(function (resolve, reject) {
       var runner = google.script.run
-        .withSuccessHandler(resolve)
+        .withSuccessHandler(function (raw) {
+          // 서버는 JSON 문자열로 답합니다. (예전 방식의 객체 응답도 그대로 받습니다)
+          if (raw === null || raw === undefined || raw === "") {
+            reject(new Error(
+              "서버에서 빈 응답이 왔습니다. Code.gs 를 최신 내용으로 붙여넣고 " +
+              "[배포 → 배포 관리 → 새 버전]으로 다시 배포했는지 확인해주세요."));
+            return;
+          }
+          if (typeof raw !== "string") { resolve(raw); return; }
+          try {
+            resolve(JSON.parse(raw));
+          } catch (err) {
+            reject(new Error("서버 응답을 읽지 못했습니다: " + raw.toString().slice(0, 120)));
+          }
+        })
         .withFailureHandler(function (err) {
           reject(new Error(err && err.message ? err.message : "서버와 연결하지 못했습니다."));
         });
