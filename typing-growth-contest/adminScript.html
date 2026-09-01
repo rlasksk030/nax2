@@ -5,6 +5,7 @@
 
 (function () {
   var $ = App.$;
+  var on = App.on;
   var adminPassword = "";   // 로그인한 동안만 메모리에 보관합니다.
   var adminRows = [];
   var editingName = "";
@@ -321,31 +322,31 @@
   /* ---------- 이벤트 연결 ---------- */
 
   document.addEventListener("DOMContentLoaded", function () {
-    $("adminLoginBtn").addEventListener("click", login);
-    $("adminPw").addEventListener("keydown", function (event) {
+    on("adminLoginBtn", "click", login);
+    on("adminPw", "keydown", function (event) {
       if (event.key === "Enter") login();
     });
-    $("adminLogoutBtn").addEventListener("click", logout);
+    on("adminLogoutBtn", "click", logout);
 
-    $("adminRefreshBtn").addEventListener("click", function () { loadData(); });
-    $("adminRecalcBtn").addEventListener("click", function () {
+    on("adminRefreshBtn", "click", function () { loadData(); });
+    on("adminRecalcBtn", "click", function () {
       loadData("apiAdminRecalculate", "성장점수와 순위를 다시 계산하고 있어요...").then(function (ok) {
         if (ok) App.toast("순위를 다시 계산했습니다.", "success");
       });
     });
 
-    $("adminCsvBtn").addEventListener("click", downloadCsv);
-    $("adminCsvViewBtn").addEventListener("click", viewCsv);
+    on("adminCsvBtn", "click", downloadCsv);
+    on("adminCsvViewBtn", "click", viewCsv);
 
-    $("editCancelBtn").addEventListener("click", function () { $("editModal").hidden = true; });
-    $("editSaveBtn").addEventListener("click", saveEdit);
-    $("csvCloseBtn").addEventListener("click", function () { $("csvModal").hidden = true; });
-    $("csvCopyBtn").addEventListener("click", copyCsv);
+    on("editCancelBtn", "click", function () { $("editModal").hidden = true; });
+    on("editSaveBtn", "click", saveEdit);
+    on("csvCloseBtn", "click", function () { $("csvModal").hidden = true; });
+    on("csvCopyBtn", "click", copyCsv);
 
-    $("editModal").addEventListener("click", function (event) {
+    on("editModal", "click", function (event) {
       if (event.target === $("editModal")) $("editModal").hidden = true;
     });
-    $("csvModal").addEventListener("click", function (event) {
+    on("csvModal", "click", function (event) {
       if (event.target === $("csvModal")) $("csvModal").hidden = true;
     });
   });

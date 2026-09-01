@@ -39,6 +39,53 @@ var App = (function () {
     toastTimer = setTimeout(function () { el.className = "toast"; }, 3200);
   }
 
+  /**
+   * 요소가 없어도 오류가 나지 않도록 안전하게 이벤트를 연결합니다.
+   * (HTML 파일 하나가 비어 있어도 나머지 화면은 계속 동작합니다.)
+   */
+  function on(id, type, handler) {
+    var el = $(id);
+    if (el) el.addEventListener(type, handler);
+    return el;
+  }
+
+  /* ---------- 설치 상태 자가 점검 ---------- */
+
+  var REQUIRED_MARKUP = [
+    { file: "index", ids: ["studentSelect", "enterBtn", "view-menu", "view-base", "view-final", "view-saved", "view-result"] },
+    { file: "admin", ids: ["view-adminLogin", "adminPw", "adminLoginBtn", "view-admin", "adminTbody", "editModal"] }
+  ];
+
+  /** 붙여넣기가 빠진 파일이 있으면 화면 위에 무엇이 문제인지 알려줍니다. */
+  function checkSetup() {
+    var missing = [];
+
+    REQUIRED_MARKUP.forEach(function (group) {
+      var lost = group.ids.filter(function (id) { return !$(id); });
+      if (lost.length) missing.push(group.file);
+    });
+
+    // style 파일이 비어 있으면 카드의 둥근 모서리가 사라집니다.
+    var card = document.querySelector(".card");
+    if (card && window.getComputedStyle(card).borderRadius === "0px") missing.push("style");
+
+    if (!missing.length) return true;
+
+    var box = document.createElement("div");
+    box.setAttribute("style",
+      "margin:0 0 18px;padding:18px 20px;border:2px solid #e0736d;border-radius:14px;" +
+      "background:#fff3f2;color:#8c2f2a;font-size:15px;line-height:1.7");
+    box.innerHTML =
+      "<b>⚠️ Apps Script 파일이 비어 있거나 이름이 다릅니다 : " +
+      missing.map(function (f) { return "<code>" + f + "</code>"; }).join(", ") +
+      "</b><br>편집기에서 이 이름의 HTML 파일을 만들고 같은 이름 파일의 내용을 붙여넣은 뒤, " +
+      "[배포 → 배포 관리 → ✏️ → 버전: 새 버전]으로 다시 배포해주세요.";
+
+    var wrap = document.getElementById("mainWrap") || document.body;
+    wrap.insertBefore(box, wrap.firstChild);
+    return false;
+  }
+
   /** google.script.run 을 Promise 처럼 사용 */
   function call(fnName) {
     var args = Array.prototype.slice.call(arguments, 1);
@@ -283,17 +330,17 @@ var App = (function () {
   /* ---------- 이벤트 연결 ---------- */
 
   function bind() {
-    $("enterBtn").addEventListener("click", function () {
+    on("enterBtn", "click", function () {
       var name = $("studentSelect").value;
       if (!name) { toast("이름을 먼저 선택해주세요.", "error"); return; }
       openMenu(name);
     });
 
-    $("studentSelect").addEventListener("keydown", function (event) {
+    on("studentSelect", "keydown", function (event) {
       if (event.key === "Enter") $("enterBtn").click();
     });
 
-    $("menuBase").addEventListener("click", function () {
+    on("menuBase", "click", function () {
       if (state.hasBase) {
         toast("이미 기초 기록이 등록되어 있습니다.", "error");
         return;
@@ -301,7 +348,7 @@ var App = (function () {
       showView("base");
     });
 
-    $("menuFinal").addEventListener("click", function () {
+    on("menuFinal", "click", function () {
       if (!state.hasBase) {
         toast("기초 기록을 먼저 등록해주세요.", "error");
         return;
@@ -313,11 +360,11 @@ var App = (function () {
       showView("final");
     });
 
-    $("menuResult").addEventListener("click", openResult);
-    $("menuBackBtn").addEventListener("click", function () { showView("home"); });
+    on("menuResult", "click", openResult);
+    on("menuBackBtn", "click", function () { showView("home"); });
 
-    $("saveBaseBtn").addEventListener("click", function () { saveRecord("base"); });
-    $("saveFinalBtn").addEventListener("click", function () { saveRecord("final"); });
+    on("saveBaseBtn", "click", function () { saveRecord("base"); });
+    on("saveFinalBtn", "click", function () { saveRecord("final"); });
 
     var backButtons = document.querySelectorAll("[data-back]");
     for (var i = 0; i < backButtons.length; i++) {
@@ -327,8 +374,8 @@ var App = (function () {
       });
     }
 
-    $("goAdminBtn").addEventListener("click", function () { showView("adminLogin"); });
-    $("adminLoginBackBtn").addEventListener("click", function () { showView("home"); });
+    on("goAdminBtn", "click", function () { showView("adminLogin"); });
+    on("adminLoginBackBtn", "click", function () { showView("home"); });
 
     // 숫자만 입력되도록 부드럽게 도와줍니다.
     var inputs = document.querySelectorAll('input[inputmode="numeric"], input[inputmode="decimal"]');
@@ -357,6 +404,7 @@ var App = (function () {
 
   document.addEventListener("DOMContentLoaded", function () {
     bind();
+    checkSetup();
     loadStudents();
     if (wantsAdmin()) {
       showView("adminLogin");
@@ -368,6 +416,7 @@ var App = (function () {
   /* 관리 화면 스크립트에서도 쓰는 공용 함수들 */
   return {
     $: $,
+    on: on,
     call: call,
     showView: showView,
     overlay: overlay,
