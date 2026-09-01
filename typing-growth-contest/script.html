@@ -345,9 +345,24 @@ var App = (function () {
     }
   }
 
+  /** 주소에 ?admin=1 이 있으면 선생님 로그인 화면부터 엽니다. */
+  function wantsAdmin() {
+    if (document.body.getAttribute("data-start-admin") === "true") return true;
+    try {
+      return /(^|[?&])admin=(1|true)($|&)/i.test(window.location.search);
+    } catch (err) {
+      return false;
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     bind();
     loadStudents();
+    if (wantsAdmin()) {
+      showView("adminLogin");
+      var input = $("adminPw");
+      if (input) input.focus();
+    }
   });
 
   /* 관리 화면 스크립트에서도 쓰는 공용 함수들 */

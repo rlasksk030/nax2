@@ -98,6 +98,7 @@ html = html.replace("<?!= include('admin'); ?>", read("admin.html"));
 html = html.replace("<?!= include('script'); ?>", bootstrap + "\n" + read("script.html"));
 html = html.replace("<?!= include('adminScript'); ?>", read("adminScript.html"));
 html = html.replace(/<\?=\s*appTitle\s*\?>/g, "우리 반 타자 성장대회");
+html = html.replace(/<\?=\s*startAdmin\s*\?>/g, "false");   // 미리보기는 ?admin=1 주소로 확인
 
 if (/<\?[!=]/.test(html)) {
   throw new Error("치환되지 않은 Apps Script 템플릿 태그가 남아 있습니다.");

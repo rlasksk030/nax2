@@ -85,6 +85,9 @@ const SAMPLE_STUDENTS = ["김하늘", "이준서", "박서윤", "정민재", "�
 function doGet(e) {
   const template = HtmlService.createTemplateFromFile("index");
   template.appTitle = APP_TITLE;
+  // 주소 뒤에 ?admin=1 을 붙이면 바로 선생님 로그인 화면으로 엽니다.
+  const adminParam = (e && e.parameter) ? String(e.parameter.admin || "") : "";
+  template.startAdmin = (adminParam === "1" || adminParam.toLowerCase() === "true");
   return template
     .evaluate()
     .setTitle(APP_TITLE)
