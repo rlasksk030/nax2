@@ -20,7 +20,7 @@ function read(name) {
 const API_NAMES = [
   "apiGetStudents", "apiGetStudentState", "apiSaveBase", "apiSaveFinal", "apiGetMyResult",
   "apiAdminLogin", "apiAdminGetData", "apiAdminRecalculate",
-  "apiAdminSaveRecord", "apiAdminDeleteRecord", "apiAdminGetCsv"
+  "apiAdminSaveRecord", "apiAdminDeleteRecord", "apiAdminGetCsv", "apiAdminGetCapture"
 ];
 
 // 가짜 Google 환경 (Node 테스트와 같은 파일을 브라우저용으로 재사용)
@@ -40,6 +40,26 @@ ${fakeGoogle}
            " " + p(d.getHours()) + ":" + p(d.getMinutes());
   } };
   window.Session = sandbox.globals.Session;
+  window.DriveApp = sandbox.drive;
+  // 브라우저에는 Buffer 가 없으므로 base64 처리를 여기서 채웁니다.
+  window.Utilities.base64Decode = function (text) {
+    var binary = atob(String(text));
+    var bytes = [];
+    for (var i = 0; i < binary.length; i++) bytes.push(binary.charCodeAt(i));
+    return bytes;
+  };
+  window.Utilities.base64Encode = function (bytes) {
+    var binary = "";
+    for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i] & 255);
+    return btoa(binary);
+  };
+  window.Utilities.newBlob = function (bytes, contentType, name) {
+    return {
+      getBytes: function () { return bytes; },
+      getContentType: function () { return contentType; },
+      getName: function () { return name; }
+    };
+  };
   window.HtmlService = sandbox.globals.HtmlService;
   window.__spreadsheet = sandbox.spreadsheet;
 })();

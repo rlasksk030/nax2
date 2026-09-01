@@ -87,11 +87,12 @@
             <th>향상률 점수</th>
             <th>정확도 점수</th>
             <th>성장점수</th>
+            <th>캡처</th>
             <th>관리</th>
           </tr>
         </thead>
         <tbody id="adminTbody">
-          <tr><td colspan="14" class="muted">불러오는 중...</td></tr>
+          <tr><td colspan="15" class="muted">불러오는 중...</td></tr>
         </tbody>
       </table>
     </div>
@@ -120,6 +121,20 @@
     <div class="btn-row">
       <button class="btn ghost" id="editCancelBtn">취소</button>
       <button class="btn" id="editSaveBtn">저장하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 교사: 캡처 사진 보기 ===================== -->
+<div class="modal-back" id="shotModal" hidden>
+  <div class="modal">
+    <h3 id="shotTitle">캡처 사진</h3>
+    <p class="desc">학생이 올린 한컴타자 결과 화면입니다.</p>
+    <div class="shot-view"><img id="shotImage" alt="학생이 올린 캡처 사진"></div>
+    <div style="height:16px"></div>
+    <div class="btn-row">
+      <button class="btn ghost" id="shotCloseBtn">닫기</button>
+      <a class="btn" id="shotOpenBtn" href="#" target="_blank" rel="noopener">드라이브에서 열기</a>
     </div>
   </div>
 </div>

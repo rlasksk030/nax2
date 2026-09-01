@@ -21,7 +21,7 @@ const EXPORTS = [
   "initializeSheets", "recalculateAll_", "readAllRecords_", "getSheet_",
   "apiGetStudents", "apiGetStudentState", "apiSaveBase", "apiSaveFinal", "apiGetMyResult",
   "apiAdminLogin", "apiAdminGetData", "apiAdminRecalculate",
-  "apiAdminSaveRecord", "apiAdminDeleteRecord", "apiAdminGetCsv"
+  "apiAdminSaveRecord", "apiAdminDeleteRecord", "apiAdminGetCsv", "apiAdminGetCapture"
 ];
 
 /** api* 함수는 JSON 문자열을 돌려주므로, 테스트에서는 객체로 바꿔 씁니다. */
@@ -56,7 +56,7 @@ function loadApp() {
     };
   });
 
-  return { api: api, rawApi: source, spreadsheet: sandbox.spreadsheet };
+  return { api: api, rawApi: source, spreadsheet: sandbox.spreadsheet, drive: sandbox.drive };
 }
 
 /* ---------------- 아주 작은 테스트 도구 ---------------- */
@@ -708,6 +708,79 @@ section("12. 응답 전송 안전성");
   eq("학생 저장 응답이 정상", JSON.parse(rawSave).ok, true);
 
   check("전송 형식 문제 없음", transportProblems.length === 0, transportProblems.join(" / "));
+}
+
+/* ============================================================
+   13. 캡처 사진 첨부
+   ============================================================ */
+section("13. 학생 캡처 사진 첨부");
+{
+  const { api, spreadsheet, drive } = loadApp();
+  api.initializeSheets();
+  const sheet = spreadsheet.getSheetByName("기록");
+
+  const png = { data: Buffer.from("가짜 이미지 데이터").toString("base64"), mimeType: "image/png", name: "캡처.png" };
+
+  // 사진 없이도 저장된다 (기본은 선택 사항)
+  const noShot = api.apiSaveBase("이준서", trials([300, 96], [300, 96], [300, 96]));
+  eq("사진 없이 저장 성공", noShot.ok, true);
+  eq("사진 없이 저장하면 캡처 표시 없음", noShot.hasCapture, false);
+
+  // 사진과 함께 저장
+  const withShot = api.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]), png);
+  eq("사진과 함께 저장 성공", withShot.ok, true);
+  eq("사진 첨부 표시", withShot.hasCapture, true);
+
+  const row = api.readAllRecords_(sheet).filter(function (r) { return r.name === "김하늘"; })[0];
+  check("기록 시트에 사진 주소 저장", /drive\.google\.com/.test(row.baseShot), row.baseShot);
+  eq("드라이브에 파일 1개 생성", Object.keys(drive.files).length, 1);
+  check("캡처 폴더 이름", !!drive.folders["타자 성장대회 캡처"], Object.keys(drive.folders).join(","));
+
+  // 잘못된 파일 / 너무 큰 파일
+  const wrongType = api.apiSaveBase("박서윤", trials([120, 90], [120, 90], [120, 90]),
+    { data: "AAAA", mimeType: "text/plain", name: "메모.txt" });
+  eq("사진이 아닌 파일 거부", wrongType.ok, false);
+  check("사진 형식 안내", /사진 파일/.test(wrongType.message), wrongType.message);
+
+  const huge = api.apiSaveBase("박서윤", trials([120, 90], [120, 90], [120, 90]),
+    { data: "A".repeat(8 * 1024 * 1024), mimeType: "image/jpeg", name: "큰사진.jpg" });
+  eq("너무 큰 사진 거부", huge.ok, false);
+  check("사진 크기 안내", /너무 커요/.test(huge.message), huge.message);
+  check("거부된 뒤에도 기록이 저장되지 않음",
+    !api.readAllRecords_(sheet).some(function (r) { return r.name === "박서윤" && r.baseStrokes; }));
+
+  // 교사만 캡처를 볼 수 있다
+  eq("비밀번호 없이 캡처 열람 거부", api.apiAdminGetCapture("틀림", "김하늘", "base").ok, false);
+  const shot = api.apiAdminGetCapture(api.ADMIN_PASSWORD, "김하늘", "base");
+  eq("교사는 캡처 열람 가능", shot.ok, true);
+  check("그림 데이터가 전달됨", /^data:image\/png;base64,/.test(shot.dataUrl), String(shot.dataUrl).slice(0, 40));
+  eq("캡처 없는 학생은 안내", api.apiAdminGetCapture(api.ADMIN_PASSWORD, "이준서", "base").ok, false);
+
+  // 관리 화면 데이터에 캡처 여부 포함
+  const data = api.apiAdminGetData(api.ADMIN_PASSWORD).data;
+  const hanul = data.rows.filter(function (r) { return r.name === "김하늘"; })[0];
+  check("관리 표에 캡처 주소 포함", !!hanul.baseShot, JSON.stringify(hanul.baseShot));
+  check("CSV 에 캡처 열 포함",
+    api.apiAdminGetCsv(api.ADMIN_PASSWORD).csv.split("\r\n")[0].indexOf("기초 캡처") > -1);
+
+  // 교사가 기록을 비우면 사진도 휴지통으로
+  const fileId = Object.keys(drive.files)[0];
+  api.apiAdminSaveRecord(api.ADMIN_PASSWORD, "김하늘", {
+    base: trials(["", ""], ["", ""], ["", ""]),
+    final: null
+  });
+  eq("기록을 비우면 사진도 휴지통", drive.files[fileId].trashed, true);
+
+  // 드라이브 저장이 실패해도 기록은 지켜진다
+  const { api: api2, spreadsheet: ss2, drive: drive2 } = loadApp();
+  api2.initializeSheets();
+  drive2.failCreate = true;
+  const failed = api2.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]), png);
+  eq("사진 저장이 실패해도 기록은 저장", failed.ok, true);
+  check("사진 실패를 알려줌", /사진은 저장하지 못했어요/.test(failed.warning), failed.warning);
+  const kept = api2.readAllRecords_(ss2.getSheetByName("기록"))
+    .filter(function (r) { return r.name === "김하늘"; })[0];
+  eq("기록 값은 정상 저장", kept.baseStrokes, 184);
 }
 
 /* ---------------- 결과 요약 ---------------- */

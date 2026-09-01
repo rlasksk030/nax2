@@ -8,8 +8,11 @@ var App = (function () {
   var state = {
     studentName: "",
     hasBase: false,
-    hasFinal: false
+    hasFinal: false,
+    capture: { base: null, final: null }   // 학생이 올린 캡처 (저장 전까지만 보관)
   };
+
+  var MAX_CAPTURE_BYTES = 5 * 1024 * 1024;
 
   /* ---------- 기본 도우미 ---------- */
 
@@ -166,6 +169,87 @@ var App = (function () {
     return "";
   }
 
+  /* ---------- 캡처 사진 ---------- */
+
+  /**
+   * 캡처 사진을 화면에서 미리 줄여서 보냅니다.
+   * (큰 사진 그대로 보내면 저장이 느리고 실패할 수 있어요)
+   */
+  function shrinkImage(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error("사진을 읽지 못했어요. 다른 사진으로 해볼까요?")); };
+      reader.onload = function () {
+        var original = reader.result;
+        var image = new Image();
+        image.onload = function () {
+          try {
+            var maxSide = 1600;
+            var scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+            var canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(image.width * scale));
+            canvas.height = Math.max(1, Math.round(image.height * scale));
+            canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+            resolve({ dataUrl: canvas.toDataURL("image/jpeg", 0.82), mimeType: "image/jpeg" });
+          } catch (err) {
+            resolve({ dataUrl: original, mimeType: file.type || "image/png" });
+          }
+        };
+        image.onerror = function () { resolve({ dataUrl: original, mimeType: file.type || "image/png" }); };
+        image.src = original;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function pickCapture(kind, file) {
+    var prefix = kind === "base" ? "b" : "f";
+    if (!file) return;
+
+    if (String(file.type || "").indexOf("image/") !== 0) {
+      toast("사진 파일(jpg, png)만 올릴 수 있어요.", "error");
+      return;
+    }
+
+    overlay(true, "사진을 준비하고 있어요...");
+    shrinkImage(file).then(function (result) {
+      overlay(false);
+      var parts = String(result.dataUrl).split(",");
+      var base64 = parts.length > 1 ? parts[1] : "";
+      var bytes = Math.floor(base64.length * 3 / 4);
+
+      if (!base64) { toast("사진을 읽지 못했어요. 다시 해볼까요?", "error"); return; }
+      if (bytes > MAX_CAPTURE_BYTES) {
+        toast("사진이 너무 커요. 화면 일부만 캡처해서 올려주세요.", "error");
+        return;
+      }
+
+      state.capture[kind] = { data: base64, mimeType: result.mimeType, name: file.name || "capture.jpg" };
+
+      var preview = $(prefix + "ShotPreview");
+      var img = $(prefix + "ShotImg");
+      var nameEl = $(prefix + "ShotName");
+      if (img) img.src = result.dataUrl;
+      if (nameEl) nameEl.textContent = Math.round(bytes / 1024) + "KB 사진이 준비됐어요";
+      if (preview) preview.hidden = false;
+      toast("사진을 첨부했어요.", "success");
+    }).catch(function (err) {
+      overlay(false);
+      toast(err.message, "error");
+    });
+  }
+
+  function clearCapture(kind) {
+    var prefix = kind === "base" ? "b" : "f";
+    state.capture[kind] = null;
+    var input = $(prefix + "Shot");
+    if (input) input.value = "";
+    var preview = $(prefix + "ShotPreview");
+    if (preview) preview.hidden = true;
+    var img = $(prefix + "ShotImg");
+    if (img) img.removeAttribute("src");
+  }
+
   /* ---------- 첫 화면: 학생 명단 ---------- */
 
   function loadStudents() {
@@ -274,7 +358,7 @@ var App = (function () {
     button.disabled = true;
     overlay(true, "기록을 저장하고 있어요...");
 
-    call(kind === "base" ? "apiSaveBase" : "apiSaveFinal", state.studentName, trials)
+    call(kind === "base" ? "apiSaveBase" : "apiSaveFinal", state.studentName, trials, state.capture[kind])
       .then(function (res) {
         overlay(false);
         button.disabled = false;
@@ -286,7 +370,10 @@ var App = (function () {
         }
 
         clearTrials(prefix);
+        clearCapture(kind);
         refreshState();
+
+        if (res.warning) toast(res.warning, "error");
 
         if (kind === "final" && res.result && res.result.state === "done") {
           renderResult(res.result);
@@ -296,7 +383,8 @@ var App = (function () {
         }
 
         $("savedTitle").textContent = label + " 기록이 저장되었습니다.";
-        $("savedDesc").textContent = "3회 중 " + res.trialNo + "회 기록(타수의 중간값)이 내 " + label + " 기록이 되었어요.";
+        $("savedDesc").textContent = "3회 중 " + res.trialNo + "회 기록(타수의 중간값)이 내 " + label + " 기록이 되었어요." +
+          (res.hasCapture ? " 캡처 사진도 함께 올라갔어요. 📷" : "");
         $("savedStrokesLabel").textContent = label + " 타수";
         $("savedAccuracyLabel").textContent = label + " 정확도";
         $("savedStrokes").textContent = num(res.strokes);
@@ -417,6 +505,14 @@ var App = (function () {
 
     on("goAdminBtn", "click", function () { showView("adminLogin"); });
     on("adminLoginBackBtn", "click", function () { showView("home"); });
+
+    // 캡처 사진 선택 / 지우기
+    [["b", "base"], ["f", "final"]].forEach(function (pair) {
+      on(pair[0] + "Shot", "change", function (event) {
+        pickCapture(pair[1], event.target.files && event.target.files[0]);
+      });
+      on(pair[0] + "ShotClear", "click", function () { clearCapture(pair[1]); });
+    });
 
     // 숫자만 입력되도록 부드럽게 도와줍니다.
     var inputs = document.querySelectorAll('input[inputmode="numeric"], input[inputmode="decimal"]');

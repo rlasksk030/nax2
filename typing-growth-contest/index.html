@@ -92,14 +92,14 @@
             <div class="field">
               <label for="b1s">타수</label>
               <div class="input-unit">
-                <input type="text" id="b1s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 184" autocomplete="off">
+                <input type="text" id="b1s" inputmode="numeric" pattern="[0-9]*" placeholder="184" autocomplete="off">
                 <span class="unit">타</span>
               </div>
             </div>
             <div class="field">
               <label for="b1a">정확도</label>
               <div class="input-unit">
-                <input type="text" id="b1a" inputmode="decimal" placeholder="예) 94" autocomplete="off">
+                <input type="text" id="b1a" inputmode="decimal" placeholder="94" autocomplete="off">
                 <span class="unit">%</span>
               </div>
             </div>
@@ -112,14 +112,14 @@
             <div class="field">
               <label for="b2s">타수</label>
               <div class="input-unit">
-                <input type="text" id="b2s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 191" autocomplete="off">
+                <input type="text" id="b2s" inputmode="numeric" pattern="[0-9]*" placeholder="191" autocomplete="off">
                 <span class="unit">타</span>
               </div>
             </div>
             <div class="field">
               <label for="b2a">정확도</label>
               <div class="input-unit">
-                <input type="text" id="b2a" inputmode="decimal" placeholder="예) 96" autocomplete="off">
+                <input type="text" id="b2a" inputmode="decimal" placeholder="96" autocomplete="off">
                 <span class="unit">%</span>
               </div>
             </div>
@@ -132,17 +132,34 @@
             <div class="field">
               <label for="b3s">타수</label>
               <div class="input-unit">
-                <input type="text" id="b3s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 176" autocomplete="off">
+                <input type="text" id="b3s" inputmode="numeric" pattern="[0-9]*" placeholder="176" autocomplete="off">
                 <span class="unit">타</span>
               </div>
             </div>
             <div class="field">
               <label for="b3a">정확도</label>
               <div class="input-unit">
-                <input type="text" id="b3a" inputmode="decimal" placeholder="예) 95" autocomplete="off">
+                <input type="text" id="b3a" inputmode="decimal" placeholder="95" autocomplete="off">
                 <span class="unit">%</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shot">
+        <div class="shot-head">
+          <span class="shot-title">📷 한컴타자 결과 화면 캡처</span>
+          <span class="shot-optional">선택</span>
+        </div>
+        <p class="shot-desc">캡처한 사진을 올리면 선생님이 기록을 확인할 수 있어요.</p>
+        <input type="file" id="bShot" accept="image/*" hidden>
+        <label class="shot-pick" for="bShot">사진 선택하기</label>
+        <div class="shot-preview" id="bShotPreview" hidden>
+          <img id="bShotImg" alt="내가 올린 캡처 미리보기">
+          <div class="shot-info">
+            <span id="bShotName">사진</span>
+            <button type="button" class="mini" id="bShotClear">지우기</button>
           </div>
         </div>
       </div>
@@ -172,14 +189,14 @@
             <div class="field">
               <label for="f1s">타수</label>
               <div class="input-unit">
-                <input type="text" id="f1s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 240" autocomplete="off">
+                <input type="text" id="f1s" inputmode="numeric" pattern="[0-9]*" placeholder="240" autocomplete="off">
                 <span class="unit">타</span>
               </div>
             </div>
             <div class="field">
               <label for="f1a">정확도</label>
               <div class="input-unit">
-                <input type="text" id="f1a" inputmode="decimal" placeholder="예) 97" autocomplete="off">
+                <input type="text" id="f1a" inputmode="decimal" placeholder="97" autocomplete="off">
                 <span class="unit">%</span>
               </div>
             </div>
@@ -192,14 +209,14 @@
             <div class="field">
               <label for="f2s">타수</label>
               <div class="input-unit">
-                <input type="text" id="f2s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 247" autocomplete="off">
+                <input type="text" id="f2s" inputmode="numeric" pattern="[0-9]*" placeholder="247" autocomplete="off">
                 <span class="unit">타</span>
               </div>
             </div>
             <div class="field">
               <label for="f2a">정확도</label>
               <div class="input-unit">
-                <input type="text" id="f2a" inputmode="decimal" placeholder="예) 97" autocomplete="off">
+                <input type="text" id="f2a" inputmode="decimal" placeholder="97" autocomplete="off">
                 <span class="unit">%</span>
               </div>
             </div>
@@ -212,17 +229,34 @@
             <div class="field">
               <label for="f3s">타수</label>
               <div class="input-unit">
-                <input type="text" id="f3s" inputmode="numeric" pattern="[0-9]*" placeholder="예) 252" autocomplete="off">
+                <input type="text" id="f3s" inputmode="numeric" pattern="[0-9]*" placeholder="252" autocomplete="off">
                 <span class="unit">타</span>
               </div>
             </div>
             <div class="field">
               <label for="f3a">정확도</label>
               <div class="input-unit">
-                <input type="text" id="f3a" inputmode="decimal" placeholder="예) 98" autocomplete="off">
+                <input type="text" id="f3a" inputmode="decimal" placeholder="98" autocomplete="off">
                 <span class="unit">%</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shot">
+        <div class="shot-head">
+          <span class="shot-title">📷 한컴타자 결과 화면 캡처</span>
+          <span class="shot-optional">선택</span>
+        </div>
+        <p class="shot-desc">캡처한 사진을 올리면 선생님이 기록을 확인할 수 있어요.</p>
+        <input type="file" id="fShot" accept="image/*" hidden>
+        <label class="shot-pick" for="fShot">사진 선택하기</label>
+        <div class="shot-preview" id="fShotPreview" hidden>
+          <img id="fShotImg" alt="내가 올린 캡처 미리보기">
+          <div class="shot-info">
+            <span id="fShotName">사진</span>
+            <button type="button" class="mini" id="fShotClear">지우기</button>
           </div>
         </div>
       </div>

@@ -99,12 +99,79 @@ class FakeSpreadsheet {
   toast(message) { this.toasts.push(message); }
 }
 
+/* ---------- 가짜 드라이브 (캡처 사진 저장용) ---------- */
+
+class FakeBlob {
+  constructor(bytes, contentType, name) {
+    this.bytes = bytes;
+    this.contentType = contentType;
+    this.name = name;
+  }
+  getBytes() { return this.bytes; }
+  getContentType() { return this.contentType; }
+  getName() { return this.name; }
+}
+
+class FakeFile {
+  constructor(id, blob) {
+    this.id = id;
+    this.blob = blob;
+    this.trashed = false;
+  }
+  getId() { return this.id; }
+  getName() { return this.blob.getName(); }
+  getUrl() { return "https://drive.google.com/file/d/" + this.id + "/view"; }
+  getBlob() { return this.blob; }
+  setTrashed(value) { this.trashed = value; return this; }
+}
+
+class FakeDrive {
+  constructor() {
+    this.folders = {};
+    this.files = {};
+    this.nextId = 1;
+    this.failCreate = false;   // 권한 오류 상황을 흉내낼 때
+  }
+  _folder(name) {
+    if (!this.folders[name]) {
+      const drive = this;
+      this.folders[name] = {
+        name: name,
+        createFile: function (blob) {
+          if (drive.failCreate) throw new Error("드라이브 권한이 없습니다.");
+          const id = "fileid" + String(drive.nextId++) + "0000000000000000000000";
+          const file = new FakeFile(id, blob);
+          drive.files[id] = file;
+          return file;
+        }
+      };
+    }
+    return this.folders[name];
+  }
+  getFoldersByName(name) {
+    const exists = !!this.folders[name];
+    const folder = this.folders[name];
+    let done = !exists;
+    return {
+      hasNext: function () { return !done; },
+      next: function () { done = true; return folder; }
+    };
+  }
+  createFolder(name) { return this._folder(name); }
+  getFileById(id) {
+    if (!this.files[id]) throw new Error("파일을 찾을 수 없습니다: " + id);
+    return this.files[id];
+  }
+}
+
 /** Code.gs 가 사용하는 전역 객체들을 만들어 줍니다. */
 function createSandbox() {
   const spreadsheet = new FakeSpreadsheet();
+  const drive = new FakeDrive();
 
   return {
     spreadsheet: spreadsheet,
+    drive: drive,
     globals: {
       console: console,
       SpreadsheetApp: {
@@ -118,8 +185,12 @@ function createSandbox() {
         }
       },
       Utilities: {
-        formatDate: function () { return "2026-03-05 09:30"; }
+        formatDate: function () { return "2026-03-05 09:30"; },
+        base64Decode: function (text) { return Array.from(Buffer.from(String(text), "base64")); },
+        base64Encode: function (bytes) { return Buffer.from(bytes).toString("base64"); },
+        newBlob: function (bytes, contentType, name) { return new FakeBlob(bytes, contentType, name); }
       },
+      DriveApp: drive,
       HtmlService: {
         createTemplateFromFile: function () { throw new Error("테스트에서는 사용하지 않습니다."); },
         createHtmlOutputFromFile: function () { throw new Error("테스트에서는 사용하지 않습니다."); },
@@ -130,4 +201,4 @@ function createSandbox() {
   };
 }
 
-module.exports = { createSandbox, FakeSheet, FakeSpreadsheet };
+module.exports = { createSandbox, FakeSheet, FakeSpreadsheet, FakeDrive };
