@@ -40,31 +40,31 @@ html, body {
   background-attachment: fixed;
   font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕",
                "Malgun Gothic", system-ui, -apple-system, sans-serif;
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1.55;
   -webkit-text-size-adjust: 100%;
 }
 
 .wrap {
   width: 100%;
-  max-width: 720px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 26px 18px 60px;
+  padding: 34px 24px 72px;
 }
 .wrap.wide { max-width: 1400px; }
 
 /* ---------- 헤더 ---------- */
-.app-header { text-align: center; margin-bottom: 22px; }
+.app-header { text-align: center; margin-bottom: 26px; }
 .app-header h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: 38px;
   font-weight: 800;
   letter-spacing: -0.5px;
 }
 .app-header p {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 /* ---------- 카드 ---------- */
@@ -72,18 +72,23 @@ html, body {
   background: var(--white);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  padding: 24px 22px;
+  padding: 30px 32px;
   margin-bottom: 18px;
 }
+/* 입력이 적은 화면은 가운데로 모아 PC에서 너무 넓어 보이지 않게 합니다. */
+#view-home .card,
+#view-saved .card,
+#view-adminLogin .card { max-width: 580px; margin-left: auto; margin-right: auto; }
+#view-result .card { max-width: 860px; margin-left: auto; margin-right: auto; }
 .card h2 {
   margin: 0 0 6px;
-  font-size: 21px;
+  font-size: 23px;
   font-weight: 800;
 }
 .card .desc {
-  margin: 0 0 18px;
+  margin: 0 0 20px;
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 /* ---------- 화면 전환 ---------- */
@@ -129,16 +134,27 @@ button { font-family: inherit; }
 .btn.small { min-height: 44px; font-size: 15px; padding: 8px 16px; width: auto; }
 
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+#menuBackBtn,
+#view-saved .btn-row,
+#view-result > .card > .btn.ghost {
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+}
 .btn-row .btn { flex: 1 1 160px; width: auto; }
+#view-base .btn-row .btn.ghost,
+#view-final .btn-row .btn.ghost { flex: 0 1 220px; }
 
 /* ---------- 메뉴 카드 ---------- */
-.menu-list { display: grid; gap: 14px; }
+.menu-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .menu-item {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   width: 100%;
-  padding: 20px;
+  min-height: 196px;
+  padding: 26px 24px;
   text-align: left;
   background: var(--white);
   border: 2px solid var(--line);
@@ -147,9 +163,10 @@ button { font-family: inherit; }
   transition: transform 0.12s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .menu-item:hover { transform: translateY(-2px); border-color: var(--blue); box-shadow: var(--shadow-soft); }
-.menu-item .emoji { font-size: 34px; line-height: 1; }
-.menu-item .texts { flex: 1; min-width: 0; }
-.menu-item .title { display: block; font-size: 19px; font-weight: 800; }
+.menu-item .emoji { font-size: 42px; line-height: 1; }
+.menu-item .badge { margin-top: auto; }
+.menu-item .texts { flex: 0 1 auto; min-width: 0; }
+.menu-item .title { display: block; font-size: 20px; font-weight: 800; }
 .menu-item .sub { display: block; font-size: 14px; color: var(--ink-soft); margin-top: 2px; }
 
 .badge {
@@ -193,20 +210,21 @@ select {
   background-position: right 16px center;
 }
 
+.trials { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 4px; }
 .trial {
   background: #fafcff;
   border: 2px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-bottom: 12px;
+  padding: 16px 18px;
 }
 .trial .trial-title {
   font-weight: 800;
-  font-size: 16px;
-  margin-bottom: 10px;
+  font-size: 17px;
+  margin-bottom: 12px;
   color: #3f5878;
 }
 .trial .fields { display: flex; gap: 10px; }
+.trial .fields .field { min-width: 0; }
 .trial .field { flex: 1; }
 .trial .field label { font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
 .input-unit { position: relative; }
@@ -247,13 +265,13 @@ select {
   flex: 1 1 140px;
   min-width: 130px;
   text-align: center;
-  padding: 18px 12px;
+  padding: 24px 16px;
   border-radius: var(--radius-md);
 }
 .compare .box.base { background: var(--blue-soft); }
 .compare .box.final { background: var(--violet-soft); }
 .compare .box .label { font-size: 14px; font-weight: 700; color: var(--ink-soft); }
-.compare .box .value { font-size: 32px; font-weight: 800; line-height: 1.2; }
+.compare .box .value { font-size: 36px; font-weight: 800; line-height: 1.2; }
 .compare .box .sub { font-size: 15px; color: var(--ink-soft); }
 .compare .arrow { font-size: 26px; color: var(--ink-soft); }
 
@@ -272,7 +290,7 @@ select {
 .stat:nth-child(2) { background: var(--blue-soft); }
 .stat:nth-child(3) { background: var(--pink-soft); }
 .stat .stat-label { font-size: 13px; color: var(--ink-soft); font-weight: 700; }
-.stat .stat-value { font-size: 22px; font-weight: 800; }
+.stat .stat-value { font-size: 24px; font-weight: 800; }
 
 .score-box {
   text-align: center;
@@ -281,7 +299,7 @@ select {
   background: linear-gradient(135deg, #eef4ff, #f4efff);
 }
 .score-box .score-label { font-size: 16px; font-weight: 700; color: var(--ink-soft); }
-.score-box .score-value { font-size: 46px; font-weight: 800; letter-spacing: -1px; }
+.score-box .score-value { font-size: 54px; font-weight: 800; letter-spacing: -1px; }
 .score-detail {
   margin-top: 10px;
   font-size: 14px;
@@ -382,13 +400,15 @@ td.score { font-weight: 800; }
   background: var(--white);
   border-radius: var(--radius-lg);
   width: 100%;
-  max-width: 560px;
+  max-width: 880px;
   max-height: 88vh;
   overflow-y: auto;
   padding: 24px;
   box-shadow: 0 20px 50px rgba(30, 50, 90, 0.3);
 }
-.modal h3 { margin: 0 0 4px; font-size: 20px; }
+.edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.edit-grid .trial { margin-bottom: 12px; }
+.modal h3 { margin: 0 0 4px; font-size: 21px; }
 .modal .desc { color: var(--ink-soft); font-size: 14px; margin-bottom: 16px; }
 .section-title {
   font-weight: 800;
@@ -459,12 +479,38 @@ td.score { font-weight: 800; }
 
 [hidden] { display: none !important; }
 
-/* ---------- 반응형 ---------- */
+/* ---------- 반응형 (PC 기준 → 좁은 화면 대응) ---------- */
+@media (max-width: 900px) {
+  body { font-size: 17px; }
+  .wrap { padding: 26px 18px 60px; }
+  .app-header h1 { font-size: 32px; }
+  .card { padding: 24px 22px; }
+  .menu-list { grid-template-columns: 1fr; gap: 14px; }
+  .menu-item {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    min-height: 0;
+    padding: 20px;
+  }
+  .menu-item .emoji { font-size: 34px; }
+  .menu-item .texts { flex: 1; }
+  .menu-item .badge { margin-top: 0; }
+  .trials { grid-template-columns: 1fr; gap: 12px; }
+  #menuBackBtn,
+  #view-saved .btn-row,
+  #view-result > .card > .btn.ghost { max-width: none; }
+  .edit-grid { grid-template-columns: 1fr; gap: 4px; }
+  #view-base .btn-row .btn.ghost,
+  #view-final .btn-row .btn.ghost { flex: 1 1 160px; }
+}
+
 @media (max-width: 520px) {
   body { font-size: 16px; }
   .wrap { padding: 18px 14px 48px; }
   .app-header h1 { font-size: 25px; }
   .card { padding: 20px 16px; border-radius: 20px; }
+  .score-box .score-value { font-size: 40px; }
   .trial .fields { gap: 8px; }
   .trial .field label { font-size: 12px; }
   .compare { flex-direction: column; gap: 6px; }
@@ -478,7 +524,4 @@ td.score { font-weight: 800; }
   .btn-row .btn { flex: 1 1 100%; }
 }
 
-@media (min-width: 768px) {
-  .app-header h1 { font-size: 34px; }
-}
 </style>
