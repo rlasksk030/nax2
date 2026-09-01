@@ -82,6 +82,7 @@ class FakeSpreadsheet {
     this.sheets = [];
     this.toasts = [];
   }
+  getName() { return "타자 성장대회"; }
   getSheetByName(name) {
     return this.sheets.filter(function (s) { return s.getName() === name; })[0] || null;
   }

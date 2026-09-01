@@ -205,19 +205,46 @@ var App = (function () {
       if (!res.ok) { toast(res.message, "error"); return; }
       state.hasBase = res.hasBase;
       state.hasFinal = res.hasFinal;
+
       setBadge("baseBadge", res.hasBase);
       setBadge("finalBadge", res.hasFinal);
-      $("resultBadge").className = "badge " + (res.hasFinal ? "done" : "wait");
-      $("resultBadge").textContent = res.hasFinal ? "결과 보기" : "확인하기";
+
+      // 이미 등록한 기록은 학생이 바꿀 수 없으므로 카드를 잠근 모습으로 보여줍니다.
+      setLock("menuBase", res.hasBase,
+        res.hasBase
+          ? "등록한 기록 " + num(res.baseStrokes) + "타 · 정확도 " + num(res.baseAccuracy) + "%"
+          : "대회를 시작할 때 잰 3회 기록");
+      setLock("menuFinal", res.hasFinal,
+        res.hasFinal
+          ? "등록한 기록 " + num(res.finalStrokes) + "타 · 정확도 " + num(res.finalAccuracy) + "%"
+          : "대회 마지막 날 잰 3회 기록");
+
+      var resultBadge = $("resultBadge");
+      if (resultBadge) {
+        resultBadge.className = "badge " + (res.hasFinal ? "done" : "wait");
+        resultBadge.textContent = res.hasFinal ? "결과 보기" : "확인하기";
+      }
     }).catch(function (err) { toast(err.message, "error"); });
   }
 
   function setBadge(id, done) {
     var el = $(id);
+    if (!el) return;
     if (done === null) { el.className = "badge wait"; el.textContent = "확인 중"; return; }
     el.className = "badge " + (done ? "done" : "todo");
-    el.textContent = done ? "등록 완료" : "아직 안 함";
+    el.textContent = done ? "🔒 등록 완료" : "아직 안 함";
   }
+
+  /** 등록이 끝난 메뉴 카드를 잠그고, 무엇을 등록했는지 보여줍니다. */
+  function setLock(id, locked, subText) {
+    var item = $(id);
+    if (!item) return;
+    item.classList.toggle("is-locked", !!locked);
+    var sub = item.querySelector(".sub");
+    if (sub) sub.textContent = subText;
+  }
+
+  var LOCKED_MESSAGE = "이미 등록해서 바꿀 수 없어요. 고쳐야 하면 선생님께 말씀드려 주세요.";
 
   /* ---------- 저장 ---------- */
 
@@ -342,7 +369,7 @@ var App = (function () {
 
     on("menuBase", "click", function () {
       if (state.hasBase) {
-        toast("이미 기초 기록이 등록되어 있습니다.", "error");
+        toast("기초 기록은 " + LOCKED_MESSAGE, "error");
         return;
       }
       showView("base");
@@ -354,7 +381,7 @@ var App = (function () {
         return;
       }
       if (state.hasFinal) {
-        toast("이미 최종 기록이 등록되어 있습니다.", "error");
+        toast("최종 기록은 " + LOCKED_MESSAGE, "error");
         return;
       }
       showView("final");

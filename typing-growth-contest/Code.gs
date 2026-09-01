@@ -551,10 +551,17 @@ function apiGetStudentState(name) {
     const row = findRecordRow_(sheet, student);
     if (!row) return { ok: true, hasBase: false, hasFinal: false };
     const values = sheet.getRange(row, 1, 1, RECORD_LAST_COL).getValues()[0];
+    const hasBase = isNumeric_(values[COL.BS - 1]) && isNumeric_(values[COL.BA - 1]);
+    const hasFinal = isNumeric_(values[COL.FS - 1]) && isNumeric_(values[COL.FA - 1]);
+    // 본인이 등록한 값만 돌려줍니다. (다른 학생 정보·순위는 포함하지 않습니다)
     return {
       ok: true,
-      hasBase: isNumeric_(values[COL.BS - 1]) && isNumeric_(values[COL.BA - 1]),
-      hasFinal: isNumeric_(values[COL.FS - 1]) && isNumeric_(values[COL.FA - 1])
+      hasBase: hasBase,
+      hasFinal: hasFinal,
+      baseStrokes: hasBase ? toNumber_(values[COL.BS - 1]) : null,
+      baseAccuracy: hasBase ? toNumber_(values[COL.BA - 1]) : null,
+      finalStrokes: hasFinal ? toNumber_(values[COL.FS - 1]) : null,
+      finalAccuracy: hasFinal ? toNumber_(values[COL.FA - 1]) : null
     };
   });
 }
@@ -758,8 +765,27 @@ function buildAdminData_() {
       baseDone: rows.filter(function (r) { return r.hasBase; }).length,
       finalDone: rows.filter(function (r) { return r.hasFinal; }).length
     },
+    // 표가 비어 보일 때 원인을 바로 알 수 있도록 시트 상태를 함께 보냅니다.
+    diagnostics: {
+      spreadsheet: safeName_(),
+      sheets: safeSheetNames_(),
+      roster: roster.length,
+      recordRows: records.length
+    },
     updatedAt: nowText_()
   };
+}
+
+function safeName_() {
+  try { return getSpreadsheet_().getName(); } catch (err) { return "(알 수 없음)"; }
+}
+
+function safeSheetNames_() {
+  try {
+    return getSpreadsheet_().getSheets().map(function (sheet) { return sheet.getName(); }).join(", ");
+  } catch (err) {
+    return "(알 수 없음)";
+  }
 }
 
 function emptyResult_(name) {

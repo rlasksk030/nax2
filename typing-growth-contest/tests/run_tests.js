@@ -571,6 +571,66 @@ section("10. 25명 학급 시나리오 종합 검증");
   eq("반 최고 증가량 학생의 증가량 점수는 50점", maxIncStudent.increaseScore, 50);
 }
 
+/* ============================================================
+   11. 학생 잠금 (한 번 등록하면 학생은 못 고침) · 관리 화면 진단
+   ============================================================ */
+section("11. 등록 후 학생 수정 차단 · 관리 화면 진단 정보");
+{
+  const { api, spreadsheet } = loadApp();
+  api.initializeSheets();
+  const sheet = spreadsheet.getSheetByName("기록");
+
+  api.apiSaveBase("김하늘", trials([184, 94], [191, 96], [176, 95]));
+  api.apiSaveFinal("김하늘", trials([240, 96], [247, 97], [252, 98]));
+
+  // 상태 조회에 본인 기록 값이 함께 온다 (메뉴에 "등록한 기록"을 보여주기 위함)
+  const state = api.apiGetStudentState("김하늘");
+  eq("상태 조회에 기초 타수 포함", state.baseStrokes, 184);
+  eq("상태 조회에 기초 정확도 포함", state.baseAccuracy, 94);
+  eq("상태 조회에 최종 타수 포함", state.finalStrokes, 247);
+  eq("상태 조회에 최종 정확도 포함", state.finalAccuracy, 97);
+  check("상태 조회에 순위/점수는 없음", state.rank === undefined && state.totalScore === undefined,
+    JSON.stringify(state));
+
+  // 학생이 화면을 우회해 서버 함수를 직접 불러도 값이 바뀌지 않아야 한다
+  function stored() {
+    const row = api.readAllRecords_(sheet).filter(function (r) { return r.name === "김하늘"; })[0];
+    return [row.baseStrokes, row.baseAccuracy, row.finalStrokes, row.finalAccuracy].join("/");
+  }
+  const before = stored();
+
+  const retryBase = api.apiSaveBase("김하늘", trials([900, 99], [900, 99], [900, 99]));
+  eq("기초 재등록 거부", retryBase.ok, false);
+  eq("기초 재등록 뒤에도 값 그대로", stored(), before);
+
+  const retryFinal = api.apiSaveFinal("김하늘", trials([900, 99], [900, 99], [900, 99]));
+  eq("최종 재등록 거부", retryFinal.ok, false);
+  eq("최종 재등록 뒤에도 값 그대로", stored(), before);
+
+  // 교사는 언제든지 고칠 수 있다
+  const teacherEdit = api.apiAdminSaveRecord(api.ADMIN_PASSWORD, "김하늘", {
+    base: trials([200, 90], [200, 90], [200, 90]),
+    final: trials([300, 98], [300, 98], [300, 98])
+  });
+  eq("교사는 수정 가능", teacherEdit.ok, true);
+  eq("교사 수정 뒤 값이 바뀜", stored(), "200/90/300/98");
+
+  // 교사가 최종 기록을 비우면 학생이 다시 등록할 수 있다
+  api.apiAdminSaveRecord(api.ADMIN_PASSWORD, "김하늘", {
+    base: trials([200, 90], [200, 90], [200, 90]),
+    final: trials(["", ""], ["", ""], ["", ""])
+  });
+  const again = api.apiSaveFinal("김하늘", trials([260, 95], [260, 95], [260, 95]));
+  eq("교사가 비운 뒤에는 학생이 다시 등록 가능", again.ok, true);
+
+  // 관리 화면 진단 정보
+  const data = api.apiAdminGetData(api.ADMIN_PASSWORD).data;
+  check("진단: 스프레드시트 이름", !!data.diagnostics.spreadsheet, JSON.stringify(data.diagnostics));
+  eq("진단: 학생명단 인원 수", data.diagnostics.roster, 5);
+  eq("진단: 기록 시트 행 수", data.diagnostics.recordRows, 1);
+  check("진단: 시트 이름 목록", data.diagnostics.sheets.indexOf("기록") > -1, data.diagnostics.sheets);
+}
+
 /* ---------------- 결과 요약 ---------------- */
 console.log("\n" + "=".repeat(56));
 if (failed === 0) {
