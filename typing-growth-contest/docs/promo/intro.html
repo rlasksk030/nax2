@@ -1,0 +1,526 @@
+<style>
+:root {
+  --blue: #5b9bf8;
+  --violet: #a78bfa;
+  --green: #56b98a;
+  --amber: #c0843a;
+  --ink: #1f2d44;
+  --ink-soft: #66768e;
+  --line: #e3e9f3;
+  --card: #ffffff;
+  --display: "Black Han Sans", "Noto Sans KR", sans-serif;
+  --body: "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #fff; font-family: var(--body); color: var(--ink); }
+
+.promo {
+  width: 1200px;
+  background:
+    radial-gradient(760px 420px at 6% 0%, #e6f0ff 0%, rgba(230,240,255,0) 62%),
+    radial-gradient(700px 420px at 100% 4%, #f1eaff 0%, rgba(241,234,255,0) 58%),
+    radial-gradient(700px 460px at 50% 100%, #e7f7ee 0%, rgba(231,247,238,0) 60%),
+    #f7f9fd;
+  padding: 0 0 56px;
+}
+
+/* ---------- 머리 ---------- */
+.head { padding: 56px 64px 40px; text-align: center; }
+.head .eyebrow {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--blue);
+  margin-bottom: 14px;
+}
+.head h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 68px;
+  line-height: 1.18;
+  letter-spacing: -.01em;
+  margin-bottom: 18px;
+}
+.head .lead { font-size: 24px; line-height: 1.6; color: #3d4f6b; }
+.head .lead b { color: var(--green); }
+.head .lead .strike { color: #9aa8bd; text-decoration: line-through; text-decoration-thickness: 3px; }
+
+.badges { display: flex; gap: 10px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
+.badge {
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 22px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #46587a;
+}
+.badge b { color: var(--blue); }
+
+/* ---------- 공통 섹션 ---------- */
+.sec { padding: 0 64px; margin-top: 46px; }
+.sec-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.sec-title h2 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 34px;
+  letter-spacing: -.01em;
+}
+.sec-title span { font-size: 18px; color: var(--ink-soft); }
+
+/* ---------- 화면 카드 ---------- */
+.shots3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.shot {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 18px 18px 22px;
+  box-shadow: 0 2px 4px rgba(31,45,68,.05), 0 14px 34px rgba(31,45,68,.09);
+  display: flex;
+  flex-direction: column;
+}
+.shot .frame {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fbfcff;
+  margin-bottom: 14px;
+  height: 430px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.shot .frame img { width: 100%; display: block; }
+.shot .step {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--blue);
+  border-radius: 8px;
+  padding: 3px 11px;
+  margin-bottom: 8px;
+  align-self: flex-start;
+}
+.shot h3 { font-size: 21px; font-weight: 800; margin-bottom: 6px; }
+.shot p { font-size: 16px; line-height: 1.62; color: var(--ink-soft); }
+.shot p b { color: var(--ink); }
+
+/* ---------- 교사 화면 ---------- */
+.admin {
+  background: var(--card);
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: 0 2px 4px rgba(31,45,68,.05), 0 16px 40px rgba(31,45,68,.10);
+}
+.admin img {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.admin-notes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 20px; }
+.admin-note {
+  background: #f6f8fd;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.admin-note .t { font-size: 17px; font-weight: 800; margin-bottom: 2px; }
+.admin-note .d { font-size: 14.5px; color: var(--ink-soft); line-height: 1.5; }
+
+/* ---------- 점수 ---------- */
+.score-wrap {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 20px;
+}
+.panel {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 26px 28px;
+  box-shadow: 0 2px 4px rgba(31,45,68,.05), 0 14px 34px rgba(31,45,68,.08);
+}
+.panel h3 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.panel .sub { font-size: 15.5px; color: var(--ink-soft); margin-bottom: 18px; line-height: 1.55; }
+.bar { display: flex; gap: 2px; height: 54px; margin-bottom: 12px; }
+.bar div {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+}
+.bar .b1 { flex: 50; background: #12a37a; border-radius: 6px 2px 2px 6px; }
+.bar .b2 { flex: 40; background: #2f6fd0; }
+.bar .b3 { flex: 10; background: #c06f14; border-radius: 2px 6px 6px 2px; font-size: 14px; }
+.bar-note { font-size: 15px; color: var(--ink-soft); line-height: 1.6; }
+.bar-note b { color: var(--ink); }
+
+/* 점수 계산 4단계 */
+.calc { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.calc-step {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 22px 22px 24px;
+  box-shadow: 0 2px 4px rgba(31,45,68,.05), 0 12px 30px rgba(31,45,68,.07);
+  display: flex;
+  flex-direction: column;
+}
+.calc-step .n {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: var(--ink); color: #fff;
+  font-size: 15px; font-weight: 800;
+  margin-bottom: 10px;
+}
+.calc-step h4 { font-size: 19px; font-weight: 800; margin-bottom: 8px; }
+.calc-step p { font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
+.calc-step p b { color: var(--ink); }
+.calc-vis {
+  margin-top: auto;
+  padding-top: 14px;
+}
+.trio { display: flex; gap: 6px; }
+.trio span {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 9px 4px;
+  border-radius: 9px;
+  background: #f2f5fa;
+  color: #8494ab;
+}
+.trio span.pick { background: #e4f5ef; color: #12a37a; box-shadow: inset 0 0 0 2px #12a37a; }
+.arrowline {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 17px; font-weight: 800;
+}
+.arrowline .from { color: #8494ab; }
+.arrowline .to { color: var(--ink); }
+.delta { display: flex; gap: 6px; margin-top: 8px; }
+.delta span {
+  flex: 1; text-align: center; font-size: 14px; font-weight: 800;
+  padding: 7px 2px; border-radius: 8px;
+}
+.delta .d1 { background: #e4f5ef; color: #0f8b68; }
+.delta .d2 { background: #e7effc; color: #2f6fd0; }
+.delta .d3 { background: #fbeef0; color: #b8465a; }
+
+.formula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #6b7d96;
+  background: #f4f8f6;
+  border-radius: 10px;
+  padding: 10px 8px;
+}
+.formula b { color: #0f8b68; font-size: 16px; }
+.formula .op { color: #a9b6c8; font-weight: 800; }
+.formula-result {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f8b68;
+}
+
+.acc-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 4px; }
+.acc-table td { padding: 4px 0; color: var(--ink-soft); }
+.acc-table td.p { text-align: right; font-weight: 800; color: var(--amber); }
+
+.example-box {
+  background: #fffaf0;
+  border: 2px dashed #e8d4ae;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.example-box .label { font-size: 16px; font-weight: 800; color: #8a6414; }
+.example-box .formula { font-size: 17px; color: #5f5340; }
+.example-box .formula b { color: #3c3524; }
+.example-box .result {
+  margin-left: auto;
+  font-family: var(--display);
+  font-size: 32px;
+  color: #12a37a;
+}
+
+.awards { display: grid; gap: 10px; }
+.award {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fbf5e9;
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.award .m { font-size: 22px; }
+.award .n { font-size: 17px; font-weight: 800; }
+.award .w { font-size: 14.5px; color: var(--ink-soft); margin-left: auto; }
+.award-note { font-size: 14.5px; color: var(--ink-soft); margin-top: 10px; }
+
+/* ---------- 배포판 구성 ---------- */
+.pack { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.pack-item {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+}
+.pack-item .ic { font-size: 30px; }
+.pack-item .n { font-size: 18px; font-weight: 800; margin: 6px 0 3px; }
+.pack-item .d { font-size: 14.5px; color: var(--ink-soft); line-height: 1.5; }
+
+/* ---------- 안내문 미리보기 ---------- */
+.notice-row { display: grid; grid-template-columns: 300px 1fr; gap: 26px; align-items: center; }
+.notice-row img {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 26px rgba(31,45,68,.10);
+}
+.notice-text h3 { font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+.notice-text p { font-size: 17px; line-height: 1.7; color: var(--ink-soft); margin-bottom: 8px; }
+.notice-text p b { color: var(--ink); }
+
+/* ---------- 꼬리 ---------- */
+.foot {
+  margin: 46px 64px 0;
+  border-top: 2px solid var(--line);
+  padding-top: 24px;
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+}
+.foot .col { flex: 1; }
+.foot .t { font-size: 15px; font-weight: 800; margin-bottom: 4px; color: #46587a; }
+.foot .d { font-size: 14.5px; line-height: 1.6; color: var(--ink-soft); }
+</style>
+
+<div class="promo">
+
+  <header class="head">
+    <p class="eyebrow">초등 6학년 학급용 · 구글 스프레드시트 기반</p>
+    <h1>⌨️ 우리 반 타자 성장대회</h1>
+    <p class="lead">
+      <span class="strike">누가 제일 빠른가</span> 가 아니라<br>
+      <b>처음의 자기보다 얼마나 자랐는가</b> 를 겨루는 학급 타자 대회
+    </p>
+    <div class="badges">
+      <span class="badge">💰 <b>무료</b></span>
+      <span class="badge">🔑 구글 계정만 있으면 됨</span>
+      <span class="badge">⏱ 설치 <b>20분</b></span>
+      <span class="badge">📱 PC · 태블릿 · 휴대폰</span>
+    </div>
+  </header>
+
+  <section class="sec">
+    <div class="sec-title">
+      <h2>학생 화면</h2>
+      <span>주소 하나만 열면 됩니다. 로그인도, 앱 설치도 필요 없어요. (PC·태블릿·휴대폰 모두 같은 주소)</span>
+    </div>
+    <div class="shots3">
+      <div class="shot">
+        <div class="frame"><img src="m1-home.png" alt="첫 화면"></div>
+        <span class="step">1</span>
+        <h3>이름 고르기</h3>
+        <p>학생 명단은 <b>스프레드시트</b>에서 불러옵니다. 이름만 고르고 들어갑니다.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="m2-form.png" alt="기록 입력 화면"></div>
+        <span class="step">2</span>
+        <h3>기록 입력</h3>
+        <p>한컴타자로 <b>3번</b> 잰 타수·정확도를 넣습니다. 회차마다 <b>결과 화면 캡처</b>도 올릴 수 있어요.</p>
+      </div>
+      <div class="shot">
+        <div class="frame"><img src="m3-result.png" alt="성장 결과 화면"></div>
+        <span class="step">3</span>
+        <h3>성장 결과</h3>
+        <p>처음 기록과 비교해 <b>성장점수</b>가 자동 계산됩니다. 다른 친구 점수·순위는 <b>보이지 않습니다.</b></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-title">
+      <h2>선생님 관리 화면</h2>
+      <span>비밀번호를 넣어야 열립니다. 전체 순위와 시상은 여기에서만 보여요.</span>
+    </div>
+    <div class="admin">
+      <img src="5-admin.png" alt="교사 관리 화면">
+      <div class="admin-notes">
+        <div class="admin-note"><div class="t">🏅 시상 자동 선정</div><div class="d">기록이 끝나면 네 가지 상을 자동으로 뽑아 줍니다</div></div>
+        <div class="admin-note"><div class="t">📋 전체 기록표</div><div class="d">성장점수 순으로 정렬. 13개 항목을 한눈에</div></div>
+        <div class="admin-note"><div class="t">✏️ 수정 · 삭제</div><div class="d">학생이 잘못 넣은 기록을 선생님이 고칠 수 있어요</div></div>
+        <div class="admin-note"><div class="t">⬇️ CSV 내려받기</div><div class="d">결과를 엑셀로 저장해 생활기록·시상에 활용</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-title">
+      <h2>점수는 이렇게 계산합니다</h2>
+      <span>느린 학생도 빠른 학생도, 각자의 성장으로 겨룹니다.</span>
+    </div>
+
+    <div class="calc">
+      <div class="calc-step">
+        <div class="n">1</div>
+        <h4>3회 중 가운데</h4>
+        <p>3번 잰 것 중 <b>타수의 중간값</b>이 내 기록. 평균이 아니라 중간값이라
+          한 번쯤 실수해도 괜찮습니다.</p>
+        <div class="calc-vis">
+          <div class="trio"><span>176</span><span class="pick">184</span><span>191</span></div>
+        </div>
+      </div>
+
+      <div class="calc-step">
+        <div class="n">2</div>
+        <h4>처음 → 최종 비교</h4>
+        <p>대회 첫날의 기록과 마지막 날의 기록을 견줍니다.
+          정확도는 <b>중간값으로 뽑힌 회차</b>의 값을 씁니다.</p>
+        <div class="calc-vis">
+          <div class="arrowline"><span class="from">184타</span>→<span class="to">247타</span></div>
+          <div class="delta"><span class="d1">+63타</span><span class="d2">34.2%</span><span class="d3">+3%p</span></div>
+        </div>
+      </div>
+
+      <div class="calc-step">
+        <div class="n">3</div>
+        <h4>반 전체로 정규화</h4>
+        <p>반에서 <b>가장 많이 늘어난 학생이 50점</b>, <b>향상률 1위가 40점</b>.
+          나머지는 그 비율로 받습니다. 줄었으면 0점.</p>
+        <div class="calc-vis">
+          <div class="formula">
+            <span>내 증가량 <b>63</b></span>
+            <span class="op">÷</span>
+            <span>반 최고 <b>90</b></span>
+            <span class="op">×</span>
+            <span>50</span>
+          </div>
+          <div class="formula-result">= 35점</div>
+        </div>
+      </div>
+
+      <div class="calc-step">
+        <div class="n">4</div>
+        <h4>정확도 10점</h4>
+        <p>마지막 기록의 <b>정확도</b>로 받습니다. 빠르기만 하고 오타가 많으면 점수가 없습니다.</p>
+        <div class="calc-vis">
+          <table class="acc-table">
+            <tr><td>98% 이상</td><td class="p">10점</td><td style="padding-left:14px">94~95.9%</td><td class="p">6점</td></tr>
+            <tr><td>96~97.9%</td><td class="p">8점</td><td style="padding-left:14px">92~93.9%</td><td class="p">4점</td></tr>
+            <tr><td>90~91.9%</td><td class="p">2점</td><td style="padding-left:14px">90% 미만</td><td class="p">0점</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="score-wrap">
+      <div class="panel">
+        <h3>성장점수 100점의 구성</h3>
+        <p class="sub">세 점수를 더해 100점 만점. 소수점 첫째 자리까지 계산합니다.</p>
+        <div class="bar">
+          <div class="b1">늘어난 타수 50점</div>
+          <div class="b2">향상률 40점</div>
+          <div class="b3">10점</div>
+        </div>
+        <p class="bar-note">
+          <b>증가량(50점)</b>만 쓰면 원래 빠른 학생이 유리하고, <b>향상률(40점)</b>만 쓰면
+          처음 타수가 낮은 학생이 지나치게 유리합니다. 둘을 함께 쓰고
+          <b>정확도(10점)</b>를 더해 균형을 맞췄습니다.
+        </p>
+        <div style="height:16px"></div>
+        <div class="example-box">
+          <div>
+            <div class="label">계산 예시 · 하늘이</div>
+            <div class="formula">증가량 <b>35</b> + 향상률 <b>18.2</b> + 정확도 <b>8</b></div>
+          </div>
+          <div class="result">61.2점</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>시상</h3>
+        <p class="sub">기록을 마친 학생 중에서 자동으로 뽑습니다.
+          한 학생은 <b>한 가지 상만</b> 받습니다.</p>
+        <div class="awards">
+          <div class="award"><span class="m">🏆</span><span class="n">타자 성장왕</span><span class="w">성장점수 1위</span></div>
+          <div class="award"><span class="m">🌱</span><span class="n">폭풍 성장상</span><span class="w">향상률 1위</span></div>
+          <div class="award"><span class="m">🎯</span><span class="n">정확 타자상</span><span class="w">최종 정확도 1위</span></div>
+          <div class="award"><span class="m">⚡</span><span class="n">번개 타자상</span><span class="w">최종 타수 1위</span></div>
+        </div>
+        <p class="award-note">위 순서로 뽑고, <b>이미 상을 받은 학생은 다음 상 후보에서 빠집니다.</b>
+          그래서 상이 여러 학생에게 골고루 돌아갑니다. 동점이면 성장점수 → 정확도 → 증가량 순으로 한 명을 정합니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-title">
+      <h2>같이 드리는 것</h2>
+      <span>압축을 풀고 설명서만 따라 하시면 됩니다.</span>
+    </div>
+    <div class="notice-row">
+      <img src="6-notice.png" alt="학생 안내문">
+      <div class="notice-text">
+        <h3>학생 안내문 (A4 4쪽)</h3>
+        <p>점수 배점, 중간값을 쓰는 이유, 상 안내, 지켜야 할 규칙까지
+          <b>6학년이 읽고 이해할 수 있는 말</b>로 정리했습니다.</p>
+        <p>그대로 인쇄해 나눠주거나 교실 화면에 띄워 설명하시면 됩니다.</p>
+      </div>
+    </div>
+    <div style="height:18px"></div>
+    <div class="pack">
+      <div class="pack-item">
+        <div class="ic">📘</div><div class="n">설치설명서</div>
+        <div class="d">A4 11쪽<br>컴퓨터를 몰라도 되는 13단계</div>
+      </div>
+      <div class="pack-item">
+        <div class="ic">📄</div><div class="n">학생 안내문</div>
+        <div class="d">A4 4쪽<br>배점 · 상 안내</div>
+      </div>
+      <div class="pack-item">
+        <div class="ic">💻</div><div class="n">코드 6개</div>
+        <div class="d">복사해서 붙여넣기만<br>하면 됩니다</div>
+      </div>
+      <div class="pack-item">
+        <div class="ic">📑</div><div class="n">자세한 설명서</div>
+        <div class="d">계산 방법 · 시트 구조<br>문제 해결</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <div class="col">
+      <div class="t">데이터는 선생님 계정에</div>
+      <div class="d">학생 기록과 캡처 사진은 <b>설치한 선생님의 구글 스프레드시트·드라이브</b>에만 저장됩니다.
+        외부로 전송되는 곳이 없습니다.</div>
+    </div>
+    <div class="col">
+      <div class="t">타자 연습 기능은 없습니다</div>
+      <div class="d">측정은 <b>한컴타자</b>에서 하고, 이 웹앱에는 기록(타수·정확도)만 옮겨 적습니다.
+        한컴타자와는 관련이 없는 개인 제작물입니다.</div>
+    </div>
+    <div class="col">
+      <div class="t">공유하실 때</div>
+      <div class="d">배포할 때 접근 권한을 <b>학교 계정</b>으로 좁히면 더 안전합니다.
+        (링크만 아는 사람에게 반 명단이 보일 수 있어요)</div>
+    </div>
+  </div>
+
+</div>
